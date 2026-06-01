@@ -3,6 +3,7 @@ node_modules/
 .next/
 out/
 build/
+dist/
 .vercel
 *.rlog
 npm-debug.log*
