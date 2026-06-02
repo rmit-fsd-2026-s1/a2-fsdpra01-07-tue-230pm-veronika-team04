@@ -11,11 +11,17 @@
   "dependencies": {
     "@chakra-ui/react": "^3.35.0",
     "@emotion/react": "^11.14.0",
+    "@floating-ui/react": "^0.27.19",
+    "@tiptap/pm": "^3.24.0",
+    "@tiptap/react": "^3.24.0",
     "next": "16.2.6",
+    "next-themes": "^0.4.6",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "react-icons": "^5.6.0"
   },
   "devDependencies": {
+    "@chakra-ui/cli": "^3.35.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",

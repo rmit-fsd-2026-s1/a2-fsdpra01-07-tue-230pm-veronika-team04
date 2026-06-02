@@ -1,10 +1,15 @@
 import "@/styles/globals.css";
-import { ChakraProvider } from "@chakra-ui/react";
+import { ChakraProvider, defaultSystem } from "@chakra-ui/react";
 import type { AppProps } from "next/app";
 
 export default function App({ Component, pageProps }: AppProps) {
-  return
-    // ( <ChakraProvider resetCSS={false}>
-      <Component {...pageProps} />
-    // </ChakraProvider> );
+  return ( 
+    <html suppressHydrationWarning>
+      <body>
+        <ChakraProvider value={defaultSystem}>
+          <Component {...pageProps} />
+        </ChakraProvider> 
+      </body>
+    </html>
+  );
 }

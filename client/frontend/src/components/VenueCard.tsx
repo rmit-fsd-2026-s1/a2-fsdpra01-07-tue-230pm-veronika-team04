@@ -1,7 +1,17 @@
 import Image from "next/image";
 import type { ReactNode } from "react";
 
-import type { Venue } from "@/types/venue";
+interface Venue {
+  id: number;
+  name: string;
+  location: string;
+  capacity: number;
+  price: number;
+  recommendedSuitability: string;
+  description: string;
+  status: "available" | "booked" | "unavailable";
+  image: string; // URL or path to the venue image
+}
 
 type VenueCardProps = {
   venue: Venue;
