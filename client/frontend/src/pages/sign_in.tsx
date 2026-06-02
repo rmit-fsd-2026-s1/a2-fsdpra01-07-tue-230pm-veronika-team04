@@ -13,6 +13,7 @@ function getRoleRedirect(user: CurrentUser) {
 
   if (user.role === "admin") {
     // TODO: redirect admin to admin dashboard when implemented.
+    // NOTE: Admin will be a seperate application, it may not be accessed directly via the website
     return "/";
   }
 
