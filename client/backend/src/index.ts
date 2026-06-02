@@ -3,6 +3,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import { AppDataSource } from "./data-source";
 import authRoutes from "./routes/authRoutes";
+import profileRoutes from "./routes/profileRoutes";
 
 dotenv.config();
 
@@ -18,6 +19,7 @@ app.get("/", (_req, res) => {
 });
 
 app.use("/api/auth", authRoutes);
+app.use("/api/profile", profileRoutes);
 
 AppDataSource.initialize()
   .then(() => {
