@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import { AppDataSource } from "./data-source";
+import authRoutes from "./routes/authRoutes";
 
 dotenv.config();
 
@@ -15,6 +16,8 @@ const port = process.env.PORT || 3001;
 app.get("/", (_req, res) => {
   res.send("Venue Vendor backend is running");
 });
+
+app.use("/api/auth", authRoutes);
 
 AppDataSource.initialize()
   .then(() => {
