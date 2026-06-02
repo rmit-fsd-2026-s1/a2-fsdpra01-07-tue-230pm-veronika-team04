@@ -1,4 +1,10 @@
-import { Column, Entity, OneToOne, PrimaryGeneratedColumn } from "typeorm";
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  OneToOne,
+  PrimaryGeneratedColumn,
+} from "typeorm";
 import { HirerAccount } from "./HirerAccount";
 import { VendorAccount } from "./VendorAccount";
 
@@ -24,6 +30,9 @@ export class User {
 
   @Column({ type: "nvarchar", length: 20 })
   role: string;
+
+  @CreateDateColumn({ type: "datetime2" })
+  createdAt: Date;
 
   @OneToOne(() => HirerAccount, (hirerAccount) => hirerAccount.user)
   hirerAccount?: HirerAccount;
