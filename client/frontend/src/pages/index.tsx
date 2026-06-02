@@ -31,7 +31,7 @@ export default function Home() {
       description:
         "A spacious and elegant ballroom perfect for large events and celebrations.",
       status: "available",
-      image: "venue1.jpg",
+      image: "/venue1.jpg",
     }
   ];
   // Simulated current venue (replace with actual authentication logic)
