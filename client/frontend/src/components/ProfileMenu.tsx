@@ -19,35 +19,19 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { toaster } from "@/components/ui/toaster";
+import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/router";
 import { useState } from "react";
 
 export default function ProfileMenu() {
-
-  // Simulated current user (replace with actual authentication logic)
-  interface User {
-    id: number;
-    name: string;
-    role: "hirer" | "freelancer";
-  }
-
-  const currentUser: User = {
-    id: 1,
-    name: "Alice",
-    role: "hirer",
-  };
-  // Simulated current user (replace with actual authentication logic)
-
   const router = useRouter();
+  const { currentUser, logout } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
 
-  const displayName = currentUser?.name ?? "User";
+  const displayName = currentUser ? currentUser.name : "User";
 
-  const handleConfirmLogout = () => {
-
-    // add logout logic here
-    // add logout logic here
-    // add logout logic here
+  const handleConfirmLogout = async () => {
+    await logout();
 
     toaster.create({
       title: "Logged out.",

@@ -4,6 +4,7 @@ import Footer from "./Footer";
 import Header from "./Header";
 import Navbar from "./Navbar";
 import ProfileMenu from "../ProfileMenu";
+import { useAuth } from "@/context/AuthContext";
 
 export type NavItem = {
   label: string;
@@ -32,13 +33,7 @@ export default function Layout({
   showFooter = true,
   mainClassName = "",
 }: LayoutProps) {
-
-  // Replace with actual authentication logic to get the current user
-  const currentUser = {
-    id: 1,
-    name: "Alice",
-    role: "hirer",
-  };
+  const { currentUser } = useAuth();
   
   return (
     

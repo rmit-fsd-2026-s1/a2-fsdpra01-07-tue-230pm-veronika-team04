@@ -2,12 +2,11 @@ import Link from "next/link";
 import Layout from "@/components/layout/Layout";
 import HomeCarousel from "@/components/HomeCarousel";
 import VenueCard from "@/components/VenueCard";
+import { useAuth } from "@/context/AuthContext";
 
 export default function Home() {
+  const { currentUser } = useAuth();
 
-  // Simulated current venue (replace with actual authentication logic)
-  // Simulated current venue (replace with actual authentication logic)
-  // Simulated current venue (replace with actual authentication logic)
   interface Venue {
     id: number;
     name: string;
@@ -34,38 +33,20 @@ export default function Home() {
       image: "/venue1.jpg",
     }
   ];
-  // Simulated current venue (replace with actual authentication logic)
-  // Simulated current venue (replace with actual authentication logic)
-  // Simulated current venue (replace with actual authentication logic)
-
-  // Simulated current user (replace with actual authentication logic)
-  // Simulated current user (replace with actual authentication logic)
-  // Simulated current user (replace with actual authentication logic)
-  interface User {
-    id: number;
-    name: string;
-    role: "hirer" | "vendor";
-  }
-
-  const currentUser: User | null = {
-    id: 1,
-    name: "Alice",
-    role: "hirer",
-  };
-  // Simulated current user (replace with actual authentication logic)
-  // Simulated current user (replace with actual authentication logic)
-  // Simulated current user (replace with actual authentication logic)
-
+  const dashboardHref =
+    currentUser?.role === "vendor"
+      ? "/vendor"
+      : currentUser?.role === "admin"
+        ? "/admin"
+        : "/hirer";
 
   const navItems = currentUser
       ? [
           { label: "Home", href: "/" },
           {
             label: "My Dashboard",
-            href: currentUser.role === "hirer" ? "/hirer" : "/vendor",
+            href: dashboardHref,
           },
-          { label: "Log In", href: "/sign_in" },
-          { label: "Sign Up", href: "/sign_up" },
         ]
 
 

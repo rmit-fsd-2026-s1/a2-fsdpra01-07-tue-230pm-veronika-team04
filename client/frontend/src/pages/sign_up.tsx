@@ -4,52 +4,43 @@ import { useState } from "react";
 
 import { toaster } from "@/components/ui/toaster";
 import { useAuth } from "@/context/AuthContext";
-import type { CurrentUser } from "@/types/user";
 
-function getRoleRedirect(user: CurrentUser) {
-  if (user.role === "vendor") {
-    return "/vendor";
-  }
-
-  if (user.role === "admin") {
-    // TODO: redirect admin to admin dashboard when implemented.
-    return "/";
-  }
-
-  return "/hirer";
-}
-
-export default function SignInPage() {
+export default function SignUpPage() {
   const router = useRouter();
-  const { login } = useAuth();
+  const { signup } = useAuth();
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
-  const [emailError, setEmailError] = useState("");
-  const [passwordError, setPasswordError] = useState("");
   const [formError, setFormError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setEmailError("");
-    setPasswordError("");
     setFormError("");
     setSuccessMessage("");
     setIsSubmitting(true);
 
     try {
-      const user = await login(email, password);
+      const user = await signup({
+        name: `${firstName} ${lastName}`.trim(),
+        email,
+        password,
+        phone,
+      });
 
       toaster.create({
-        title: "Login successful.",
+        title: "Signup successful.",
         description: `Welcome, ${user.name}! Redirecting...`,
         duration: 2000,
         type: "success",
       });
 
-      setSuccessMessage(`Logged in as ${user.name}!`);
-      router.push(getRoleRedirect(user));
+      setSuccessMessage(`Account created for ${user.name}.`);
+      // Keep the A1 signup flow: users sign in explicitly after account creation.
+      router.push("/sign_in");
     } catch (error) {
       const message =
         error instanceof Error
@@ -58,7 +49,7 @@ export default function SignInPage() {
 
       setFormError(message);
       toaster.create({
-        title: "Login failed.",
+        title: "Signup failed.",
         description: message,
         duration: 3000,
         type: "error",
@@ -81,43 +72,63 @@ export default function SignInPage() {
           >
             Back
           </Link>
+
           <div className="w-full max-w-sm text-zinc-950">
             <div className="mt-4 text-center">
               <h2 className="text-3xl font-semibold tracking-wide text-zinc-900">
                 Venue Vendors
               </h2>
               <p className="mt-3 text-sm leading-6 text-zinc-600 sm:text-base">
-                Sign in to your Venue Vendors account
+                Create your hirer account
               </p>
             </div>
+
             <form className="mt-5 space-y-3" onSubmit={handleSubmit}>
-              <div>
+              <div className="grid gap-3 sm:grid-cols-2">
                 <input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
+                  id="firstName"
+                  type="text"
+                  value={firstName}
+                  onChange={(event) => setFirstName(event.target.value)}
                   className="w-full rounded-md border border-zinc-300 bg-white px-4 py-2.5 text-zinc-950 outline-none transition-colors focus:border-zinc-900"
-                  placeholder="Enter your email"
+                  placeholder="First name"
                 />
-                {emailError ? (
-                  <p className="mt-1.5 text-sm text-red-600">{emailError}</p>
-                ) : null}
+                <input
+                  id="lastName"
+                  type="text"
+                  value={lastName}
+                  onChange={(event) => setLastName(event.target.value)}
+                  className="w-full rounded-md border border-zinc-300 bg-white px-4 py-2.5 text-zinc-950 outline-none transition-colors focus:border-zinc-900"
+                  placeholder="Last name"
+                />
               </div>
 
-              <div>
-                <input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  className="w-full rounded-md border border-zinc-300 bg-white px-4 py-2.5 text-zinc-950 outline-none transition-colors focus:border-zinc-900"
-                  placeholder="Enter your password"
-                />
-                {passwordError ? (
-                  <p className="mt-1.5 text-sm text-red-600">{passwordError}</p>
-                ) : null}
-              </div>
+              <input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                className="w-full rounded-md border border-zinc-300 bg-white px-4 py-2.5 text-zinc-950 outline-none transition-colors focus:border-zinc-900"
+                placeholder="Enter your email"
+              />
+
+              <input
+                id="phone"
+                type="tel"
+                value={phone}
+                onChange={(event) => setPhone(event.target.value)}
+                className="w-full rounded-md border border-zinc-300 bg-white px-4 py-2.5 text-zinc-950 outline-none transition-colors focus:border-zinc-900"
+                placeholder="Phone number"
+              />
+
+              <input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                className="w-full rounded-md border border-zinc-300 bg-white px-4 py-2.5 text-zinc-950 outline-none transition-colors focus:border-zinc-900"
+                placeholder="Create a password"
+              />
 
               {formError ? (
                 <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -133,17 +144,17 @@ export default function SignInPage() {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full rounded-md px-4 py-2.5 text-sm font-medium text-white transition-colors hover:opacity-90"
+                className="w-full rounded-md px-4 py-2.5 text-sm font-medium text-white transition-colors hover:opacity-90 disabled:opacity-70"
                 style={{ backgroundColor: "#095d44" }}
               >
-                {isSubmitting ? "Signing in..." : "Sign In Now"}
+                {isSubmitting ? "Creating account..." : "Sign Up Now"}
               </button>
             </form>
 
             <p className="mt-4 text-sm text-zinc-600">
-              Don&apos;t have an account?{" "}
-              <Link href="/sign_up" className="font-medium text-zinc-950 underline">
-                Sign Up
+              Already have an account?{" "}
+              <Link href="/sign_in" className="font-medium text-zinc-950 underline">
+                Sign In
               </Link>
             </p>
           </div>
@@ -155,11 +166,10 @@ export default function SignInPage() {
         >
           <div className="w-full max-w-sm">
             <h1 className="mt-2 text-5xl italic font-semibold leading-tight">
-              Welcome
+              Join
             </h1>
             <h2 className="mt-2 text-3xl leading-tight">
-              A simple platform where hirers explore venues and vendors manage
-              applications with clarity.
+              Find venues for your next event with one hirer account.
             </h2>
           </div>
         </div>
