@@ -73,7 +73,7 @@ export default function ProfileMenu() {
           <MenuItem value="settings" onClick={() => router.push("/settings")}>
             Settings
           </MenuItem>
-          <MenuSeparator />
+          <MenuSeparator color="gray.300" />
           <MenuItem value="logout" onClick={() => setIsOpen(true)} color="red.600">
             Logout
           </MenuItem>
