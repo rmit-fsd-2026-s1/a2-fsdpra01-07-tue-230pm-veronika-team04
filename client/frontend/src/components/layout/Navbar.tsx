@@ -52,13 +52,13 @@ export default function Navbar({ items = [], profileMenu }: NavbarProps) {
             <span className="text-sm font-medium text-zinc-700">
               Welcome, {currentUser.name}
             </span>
-            <button
+            {/* <button
               type="button"
               onClick={handleLogout}
               className="rounded-full px-3 py-1.5 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-100 hover:text-black"
             >
               Logout
-            </button>
+            </button> */}
           </>
         ) : null}
         {profileMenu && <div className="ml-2">{profileMenu}</div>}

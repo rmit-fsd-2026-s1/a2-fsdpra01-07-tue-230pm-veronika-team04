@@ -11,3 +11,18 @@ export type StoredUser = {
 };
 
 export type CurrentUser = StoredUser;
+
+export type UploadedDocumentMetadata = {
+  fileName: string;
+  mimeType: string;
+  uploaded: boolean;
+  base64Data: string;
+};
+
+export type ComplianceDocuments = {
+  driverLicence: UploadedDocumentMetadata | null;
+  insuranceCertificate: UploadedDocumentMetadata | null;
+  applyingAsBusiness: boolean;
+  abnNumber: string | null;
+  businessRegistrationCertificate: UploadedDocumentMetadata | null;
+};
