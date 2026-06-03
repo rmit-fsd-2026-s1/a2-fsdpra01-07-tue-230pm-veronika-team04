@@ -6,19 +6,19 @@ import { useAuth } from "@/context/AuthContext";
 
 export default function VendorPage() {
   const router = useRouter();
-  const { currentUser, isLoading } = useAuth();
+  const { currentUser, isAuthReady } = useAuth();
 
   useEffect(() => {
-    if (isLoading) {
+    if (!isAuthReady) {
       return;
     }
 
     if (!currentUser || currentUser.role !== "vendor") {
       router.replace("/sign_in");
     }
-  }, [currentUser, isLoading, router]);
+  }, [currentUser, isAuthReady, router]);
 
-  if (isLoading || !currentUser || currentUser.role !== "vendor") {
+  if (!isAuthReady || !currentUser || currentUser.role !== "vendor") {
     return null;
   }
 

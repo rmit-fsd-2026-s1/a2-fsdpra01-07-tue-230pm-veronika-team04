@@ -6,19 +6,19 @@ import { useAuth } from "@/context/AuthContext";
 
 export default function HirerPage() {
   const router = useRouter();
-  const { currentUser, isLoading } = useAuth();
+  const { currentUser, isAuthReady } = useAuth();
 
   useEffect(() => {
-    if (isLoading) {
+    if (!isAuthReady) {
       return;
     }
 
     if (!currentUser || currentUser.role !== "hirer") {
       router.replace("/sign_in");
     }
-  }, [currentUser, isLoading, router]);
+  }, [currentUser, isAuthReady, router]);
 
-  if (isLoading || !currentUser || currentUser.role !== "hirer") {
+  if (!isAuthReady || !currentUser || currentUser.role !== "hirer") {
     return null;
   }
 
