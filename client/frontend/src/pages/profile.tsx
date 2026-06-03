@@ -1,24 +1,11 @@
 import { Button, HStack, Icon, Input, Separator } from "@chakra-ui/react";
 import { Avatar } from "@/components/ui/avatar";
-import {
-  DialogBody,
-  DialogCloseTrigger,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogRoot,
-  DialogTitle,
+import { DialogBody, DialogCloseTrigger, DialogContent, DialogFooter, DialogHeader, DialogRoot, DialogTitle,
 } from "@/components/ui/dialog";
 import { Field } from "@/components/ui/field";
 import { toaster } from "@/components/ui/toaster";
 import {
-  FaChevronRight,
-  FaEnvelope,
-  FaInfo,
-  FaLock,
-  FaPhone,
-  FaRegQuestionCircle,
-  FaStar,
+  FaChevronRight, FaEnvelope, FaInfo,FaLock, FaPhone, FaRegQuestionCircle, FaStar,
 } from "react-icons/fa";
 
 import Layout from "@/components/layout/Layout";
