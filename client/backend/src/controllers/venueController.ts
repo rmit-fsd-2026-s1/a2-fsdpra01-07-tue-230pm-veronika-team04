@@ -64,7 +64,7 @@ export async function getAllVenues(
   res: Response,
 ): Promise<void> {
   try {
-    // Fetch every venue, then map them for the old frontend format.
+    // Fetch every venue, then map them for the frontend format.
     const venues = await getVenuesFromDatabase();
     const sortedVenues = sortVenues(venues);
 
@@ -80,49 +80,51 @@ export async function getAllVenues(
   }
 }
 
-export async function getVenueByID(
-  req: Request,
-  res: Response,
-): Promise<void> {
-  try {
-    const venueID = Number(req.params.venueID);
+// Maybe not need this function, as the frontend doesn't have a venue details page. 
+// The frontend only uses the searchVenues function which returns all the details needed for the homepage.
+// export async function getVenueByID(
+//   req: Request,
+//   res: Response,
+// ): Promise<void> {
+//   try {
+//     const venueID = Number(req.params.venueID);
 
-    // Route params are strings, so check it is a valid positive number first.
-    if (!Number.isInteger(venueID) || venueID <= 0) {
-      res.status(400).json({ message: "Invalid venueID" });
-      return;
-    }
+//     // Route params are strings, so check it is a valid positive number first.
+//     if (!Number.isInteger(venueID) || venueID <= 0) {
+//       res.status(400).json({ message: "Invalid venueID" });
+//       return;
+//     }
 
-    const venueRepository = AppDataSource.getRepository(Venue);
+//     const venueRepository = AppDataSource.getRepository(Venue);
 
-    const venue = await venueRepository.findOne({
-      where: { venueID },
-      relations: {
-        vendorAccount: {
-          user: true,
-        },
-        recommendedSuitabilities: {
-          suitabilityTag: true,
-        },
-      },
-    });
+//     const venue = await venueRepository.findOne({
+//       where: { venueID },
+//       relations: {
+//         vendorAccount: {
+//           user: true,
+//         },
+//         recommendedSuitabilities: {
+//           suitabilityTag: true,
+//         },
+//       },
+//     });
 
-    if (!venue) {
-      res.status(404).json({ message: "Venue not found" });
-      return;
-    }
+//     if (!venue) {
+//       res.status(404).json({ message: "Venue not found" });
+//       return;
+//     }
 
-    res.status(200).json({
-      message: "Venue retrieved successfully",
-      venue: mapVenue(venue),
-    });
-  } catch (error) {
-    console.error("Get venue failed:", error);
-    res.status(500).json({
-      message: "Something went wrong. Please try again later.",
-    });
-  }
-}
+//     res.status(200).json({
+//       message: "Venue retrieved successfully",
+//       venue: mapVenue(venue),
+//     });
+//   } catch (error) {
+//     console.error("Get venue failed:", error);
+//     res.status(500).json({
+//       message: "Something went wrong. Please try again later.",
+//     });
+//   }
+// }
 
 export async function searchVenues(
   req: Request,
