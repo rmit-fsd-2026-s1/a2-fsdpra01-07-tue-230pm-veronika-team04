@@ -45,15 +45,25 @@ export default function ProfileMenu() {
 
   return (
     <>
+    <div style={{ display: "inline-block" }}>
       <MenuRoot positioning={{ placement: "bottom-end" }}>
         <MenuTrigger asChild>
-          <Button variant="ghost" rounded="full" _focusVisible={{ outline: "2px solid", outlineColor: "blue.500" }}>
+          <Button 
+            variant="ghost" 
+            rounded="full" 
+            boxSize="50px" 
+            padding="0"
+            minW="40px"
+            _hover={{ bg: "#d3e6f3" }}
+            _focus={{ outline: "none", boxShadow: "none" }} 
+            _focusVisible={{ outline: "none", boxShadow: "none" }}
+          >
             <Avatar.Root size="md" colorPalette="blue">
-              <Avatar.Fallback name={displayName} bg="blue.500" color="white" />
+              <Avatar.Fallback name={displayName} color="dark-blue" />
             </Avatar.Root>
           </Button>
         </MenuTrigger>
-        <MenuContent bg="white" borderColor="gray.200" boxShadow="md" zIndex={1400}>
+        <MenuContent bg="white" borderColor="gray.200" boxShadow="md" zIndex={1400} position="absolute" marginTop="5px">
           <MenuItem value="profile" onClick={() => router.push("/profile")}>
             My Profile
           </MenuItem>
@@ -78,11 +88,11 @@ export default function ProfileMenu() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle fontSize="lg" fontWeight="bold">
+            <DialogTitle fontSize="lg" fontWeight="bold" color="black">
               Confirm Logout
             </DialogTitle>
           </DialogHeader>
-          <DialogBody>Are you sure you want to log out?</DialogBody>
+          <DialogBody color="black">Are you sure you want to log out?</DialogBody>
           <DialogFooter gap={3}>
             <DialogActionTrigger asChild>
               <Button variant="outline" onClick={() => setIsOpen(false)}>
@@ -95,6 +105,7 @@ export default function ProfileMenu() {
           </DialogFooter>
         </DialogContent>
       </DialogRoot>
+    </div>
     </>
   );
 }
