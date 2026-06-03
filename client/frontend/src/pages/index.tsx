@@ -3,25 +3,15 @@ import Layout from "@/components/layout/Layout";
 import HomeCarousel from "@/components/HomeCarousel";
 import VenueCard from "@/components/VenueCard";
 import { useAuth } from "@/context/AuthContext";
+import type { Venue } from "@/types/venue";
 
 export default function Home() {
   const { currentUser } = useAuth();
 
-  interface Venue {
-    id: number;
-    name: string;
-    location: string;
-    capacity: number;
-    price: number;
-    recommendedSuitability: string;
-    description: string;
-    status: "available" | "booked" | "unavailable";
-    image: "/venue1.jpg"; // URL or path to the venue image
-  }
-
   const venues: Venue[] = [
     {
       id: 1,
+      vendorEmail: "",
       name: "Grand Ballroom",
       location: "Downtown",
       capacity: 300,
