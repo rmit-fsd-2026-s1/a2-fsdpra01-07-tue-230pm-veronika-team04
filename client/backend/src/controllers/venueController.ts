@@ -1,0 +1,186 @@
+import { Request, Response } from "express";
+import { AppDataSource } from "../data-source";
+import { Venue } from "../entity/Venue";
+
+async function getVenuesFromDatabase() {
+  const venueRepository = AppDataSource.getRepository(Venue);
+
+  // Get venues with the related vendor user and suitability tags.
+  // This return vendorEmail and recommendedSuitability to the frontend.
+  return venueRepository.find({
+    relations: {
+      vendorAccount: {
+        user: true,
+      },
+      recommendedSuitabilities: {
+        suitabilityTag: true,
+      },
+    },
+  });
+}
+
+function sortVenues(venues: Venue[]) {
+  // Featured venues should show first, then sort by venue name.
+  return venues.sort((a, b) => {
+    if (a.isFeature && !b.isFeature) {
+      return -1;
+    }
+
+    if (!a.isFeature && b.isFeature) {
+      return 1;
+    }
+
+    return a.venueName.localeCompare(b.venueName);
+  });
+}
+
+function mapVenue(venue: Venue) {
+  // Convert the suitability tag relation into one comma-separated string.
+  const tags = venue.recommendedSuitabilities || [];
+
+  const recommendedSuitability = tags
+    .map((item) => item.suitabilityTag?.recommendType)
+    .filter((tag) => tag)
+    .join(", ");
+
+  // Return the same shape the A1 frontend already expects.
+  // Do not return the raw database entity.
+  return {
+    id: venue.venueID,
+    vendorEmail: venue.vendorAccount?.user?.email || "",
+    name: venue.venueName,
+    location: venue.location,
+    capacity: venue.capacity,
+    price: Number(venue.price),
+    recommendedSuitability,
+    description: venue.description || "",
+    image: venue.imageUrl || "",
+    status: venue.status,
+  };
+}
+
+export async function getAllVenues(
+  _req: Request,
+  res: Response,
+): Promise<void> {
+  try {
+    // Fetch every venue, then map them for the old frontend format.
+    const venues = await getVenuesFromDatabase();
+    const sortedVenues = sortVenues(venues);
+
+    res.status(200).json({
+      message: "Venues retrieved successfully",
+      venues: sortedVenues.map(mapVenue),
+    });
+  } catch (error) {
+    console.error("Get venues failed:", error);
+    res.status(500).json({
+      message: "Something went wrong. Please try again later.",
+    });
+  }
+}
+
+export async function getVenueByID(
+  req: Request,
+  res: Response,
+): Promise<void> {
+  try {
+    const venueID = Number(req.params.venueID);
+
+    // Route params are strings, so check it is a valid positive number first.
+    if (!Number.isInteger(venueID) || venueID <= 0) {
+      res.status(400).json({ message: "Invalid venueID" });
+      return;
+    }
+
+    const venueRepository = AppDataSource.getRepository(Venue);
+
+    const venue = await venueRepository.findOne({
+      where: { venueID },
+      relations: {
+        vendorAccount: {
+          user: true,
+        },
+        recommendedSuitabilities: {
+          suitabilityTag: true,
+        },
+      },
+    });
+
+    if (!venue) {
+      res.status(404).json({ message: "Venue not found" });
+      return;
+    }
+
+    res.status(200).json({
+      message: "Venue retrieved successfully",
+      venue: mapVenue(venue),
+    });
+  } catch (error) {
+    console.error("Get venue failed:", error);
+    res.status(500).json({
+      message: "Something went wrong. Please try again later.",
+    });
+  }
+}
+
+export async function searchVenues(
+  req: Request,
+  res: Response,
+): Promise<void> {
+  try {
+    const name = typeof req.query.name === "string" ? req.query.name : "";
+    const location =
+      typeof req.query.location === "string" ? req.query.location : "";
+    const capacityText =
+      typeof req.query.capacity === "string" ? req.query.capacity : "";
+    const suitability =
+      typeof req.query.suitability === "string" ? req.query.suitability : "";
+
+    // Capacity must be a number because we compare it with venue.capacity.
+    if (capacityText && Number.isNaN(Number(capacityText))) {
+      res.status(400).json({ message: "Invalid capacity" });
+      return;
+    }
+
+    let venues = await getVenuesFromDatabase();
+
+    // Filter in TypeScript to keep the first version easy to read.
+    if (name) {
+      venues = venues.filter((venue) =>
+        venue.venueName.toLowerCase().includes(name.toLowerCase()),
+      );
+    }
+
+    if (location) {
+      venues = venues.filter((venue) =>
+        venue.location.toLowerCase().includes(location.toLowerCase()),
+      );
+    }
+
+    if (capacityText) {
+      const capacity = Number(capacityText);
+      venues = venues.filter((venue) => venue.capacity >= capacity);
+    }
+
+    if (suitability) {
+      venues = venues.filter((venue) =>
+        mapVenue(venue)
+          .recommendedSuitability.toLowerCase()
+          .includes(suitability.toLowerCase()),
+      );
+    }
+
+    const sortedVenues = sortVenues(venues);
+
+    res.status(200).json({
+      message: "Venue search completed successfully",
+      venues: sortedVenues.map(mapVenue),
+    });
+  } catch (error) {
+    console.error("Venue search failed:", error);
+    res.status(500).json({
+      message: "Something went wrong. Please try again later.",
+    });
+  }
+}
