@@ -1,20 +1,13 @@
 import axios from "axios";
 import {
   createContext,
-  useCallback,
   type ReactNode,
   useContext,
   useEffect,
-  useMemo,
   useState,
 } from "react";
 
-import {
-  authApi,
-  type BackendAuthUser,
-  type LoginPayload,
-  type SignupPayload,
-} from "@/services/authApi";
+import { authApi, type BackendAuthUser } from "@/services/authApi";
 import type { CurrentUser } from "@/types/user";
 
 type SignupFormPayload = {
@@ -28,7 +21,6 @@ type AuthContextValue = {
   currentUser: CurrentUser | null;
   isAuthReady: boolean;
   isAuthenticated: boolean;
-  isLoading: boolean;
   login: (email: string, password: string) => Promise<CurrentUser>;
   signup: (payload: SignupFormPayload) => Promise<CurrentUser>;
   logout: () => Promise<void>;
@@ -61,7 +53,7 @@ function mapBackendUser(user: BackendAuthUser): CurrentUser {
   };
 }
 
-function splitName(name: string): Pick<SignupPayload, "firstName" | "lastName"> {
+function splitName(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   const [firstName = "", ...lastNameParts] = parts;
 
@@ -76,42 +68,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAuthReady, setIsAuthReady] = useState(false);
 
   useEffect(() => {
-    const timeoutId = window.setTimeout(() => {
-      const storedUser = window.localStorage.getItem(STORAGE_KEY);
+    /* eslint-disable react-hooks/set-state-in-effect */
+    const storedUser = window.localStorage.getItem(STORAGE_KEY);
 
-      if (storedUser) {
-        try {
-          setCurrentUser(JSON.parse(storedUser) as CurrentUser);
-        } catch {
-          window.localStorage.removeItem(STORAGE_KEY);
-          setCurrentUser(null);
-        }
+    if (storedUser) {
+      try {
+        setCurrentUser(JSON.parse(storedUser) as CurrentUser);
+      } catch {
+        window.localStorage.removeItem(STORAGE_KEY);
+        setCurrentUser(null);
       }
+    }
 
-      setIsAuthReady(true);
-    }, 0);
-
-    return () => window.clearTimeout(timeoutId);
+    setIsAuthReady(true);
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
 
-  const saveUser = useCallback((user: CurrentUser) => {
+  function saveUser(user: CurrentUser) {
     setCurrentUser(user);
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
     return user;
-  }, []);
+  }
 
-  const login = useCallback(async (email: string, password: string) => {
+  async function login(email: string, password: string) {
     try {
-      const payload: LoginPayload = { email, password };
-      const response = await authApi.login(payload);
+      const response = await authApi.login({ email, password });
       return saveUser(mapBackendUser(response.data.user));
     } catch (error) {
-      console.error("Login error:", error);
       throw new Error(getApiErrorMessage(error));
     }
-  }, [saveUser]);
+  }
 
-  const signup = useCallback(async (payload: SignupFormPayload) => {
+  async function signup(payload: SignupFormPayload) {
     try {
       const { firstName, lastName } = splitName(payload.name);
       const response = await authApi.signup({
@@ -126,9 +114,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       throw new Error(getApiErrorMessage(error));
     }
-  }, [saveUser]);
+  }
 
-  const logout = useCallback(async () => {
+  async function logout() {
     try {
       await authApi.logout();
     } catch {
@@ -137,25 +125,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       window.localStorage.removeItem(STORAGE_KEY);
       setCurrentUser(null);
     }
-  }, []);
+  }
 
-  const overrideCurrentUser = useCallback((user: CurrentUser) => {
+  function overrideCurrentUser(user: CurrentUser) {
     saveUser(user);
-  }, [saveUser]);
+  }
 
-  const value = useMemo(
-    () => ({
-      currentUser,
-      isAuthReady,
-      isAuthenticated: currentUser !== null,
-      isLoading: !isAuthReady,
-      login,
-      signup,
-      logout,
-      overrideCurrentUser,
-    }),
-    [currentUser, isAuthReady, login, signup, logout, overrideCurrentUser],
-  );
+  const value: AuthContextValue = {
+    currentUser,
+    isAuthReady,
+    isAuthenticated: currentUser !== null,
+    login,
+    signup,
+    logout,
+    overrideCurrentUser,
+  };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
@@ -170,4 +154,4 @@ export function useAuth() {
   return context;
 }
 
-export type { CurrentUser, LoginPayload, SignupFormPayload };
+export type { CurrentUser, SignupFormPayload };
