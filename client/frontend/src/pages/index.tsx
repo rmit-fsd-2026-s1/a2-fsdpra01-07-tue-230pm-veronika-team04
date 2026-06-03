@@ -51,7 +51,7 @@ export default function Home() {
 
 
       : [
-          { label: "Log In", href: "/sign_in" },
+          { label: "Log In", href: "/login" },
           { label: "Sign Up", href: "/sign_up" },
         ];
 
@@ -73,7 +73,7 @@ export default function Home() {
 
           <div className="mt-10 flex justify-center">
             <Link
-              href="/sign_in"
+              href="/login"
               className="inline-flex rounded-md px-5 py-2.5 text-sm font-medium text-white transition-colors hover:opacity-90"
               style={{ backgroundColor: "#095d44" }}
             >

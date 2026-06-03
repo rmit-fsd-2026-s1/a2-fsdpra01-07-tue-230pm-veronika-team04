@@ -20,7 +20,7 @@ function getRoleRedirect(user: CurrentUser) {
   return "/hirer";
 }
 
-export default function SignInPage() {
+export default function LoginPage() {
   const router = useRouter();
   const { login } = useAuth();
   const [email, setEmail] = useState("");

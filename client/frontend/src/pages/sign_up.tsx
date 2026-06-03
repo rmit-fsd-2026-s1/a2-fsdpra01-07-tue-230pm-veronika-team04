@@ -40,7 +40,7 @@ export default function SignUpPage() {
 
       setSuccessMessage(`Account created for ${user.name}.`);
       // Keep the A1 signup flow: users sign in explicitly after account creation.
-      router.push("/sign_in");
+      router.push("/login");
     } catch (error) {
       const message =
         error instanceof Error
@@ -153,7 +153,7 @@ export default function SignUpPage() {
 
             <p className="mt-4 text-sm text-zinc-600">
               Already have an account?{" "}
-              <Link href="/sign_in" className="font-medium text-zinc-950 underline">
+              <Link href="/login" className="font-medium text-zinc-950 underline">
                 Sign In
               </Link>
             </p>

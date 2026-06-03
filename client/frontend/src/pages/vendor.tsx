@@ -14,7 +14,7 @@ export default function VendorPage() {
     }
 
     if (!currentUser || currentUser.role !== "vendor") {
-      router.replace("/sign_in");
+      router.replace("/login");
     }
   }, [currentUser, isAuthReady, router]);
 

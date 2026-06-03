@@ -16,7 +16,7 @@ export default function Navbar({ items = [], profileMenu }: NavbarProps) {
 
   async function handleLogout() {
     await logout();
-    router.push("/sign_in");
+    router.push("/login");
   }
 
   if (items.length === 0 && !profileMenu && !currentUser) {

@@ -14,7 +14,7 @@ export default function HirerPage() {
     }
 
     if (!currentUser || currentUser.role !== "hirer") {
-      router.replace("/sign_in");
+      router.replace("/login");
     }
   }, [currentUser, isAuthReady, router]);
 

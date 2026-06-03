@@ -14,7 +14,7 @@ export default function AdminPage() {
     }
 
     if (!currentUser || currentUser.role !== "admin") {
-      router.replace("/sign_in");
+      router.replace("/login");
     }
   }, [currentUser, isAuthReady, router]);
 
