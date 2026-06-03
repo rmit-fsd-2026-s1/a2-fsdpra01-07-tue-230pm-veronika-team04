@@ -1,17 +1,7 @@
 import Image from "next/image";
 import type { ReactNode } from "react";
 
-interface Venue {
-  id: number;
-  name: string;
-  location: string;
-  capacity: number;
-  price: number;
-  recommendedSuitability: string;
-  description: string;
-  status: "available" | "booked" | "unavailable";
-  image: "/venue1.jpg"; // URL or path to the venue image
-}
+import type { Venue } from "@/types/venue";
 
 type VenueCardProps = {
   venue: Venue;
@@ -26,13 +16,17 @@ export default function VenueCard({
 }: VenueCardProps) {
   const hasImage = venue.image.trim() !== "";
   const isSummary = variant === "summary";
+  const imageSrc =
+    venue.image.startsWith("/") || venue.image.startsWith("http")
+      ? venue.image
+      : `/${venue.image}`;
 
   return (
     <article className="overflow-hidden rounded-3xl border border-black/10 bg-white shadow-sm">
       {hasImage ? (
         <div className="relative h-52 w-full">
           <Image
-            src={venue.image}
+            src={imageSrc}
             alt={venue.name}
             fill
             className="object-cover"
