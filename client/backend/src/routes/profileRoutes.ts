@@ -8,7 +8,7 @@ import {
 const router = Router();
 
 router.get("/:userID", getProfile);
-router.put("/:userID", updateProfile);
-router.put("/:userID/password", updatePassword);
+router.patch("/:userID", updateProfile);
+router.patch("/:userID/password", updatePassword);
 
 export default router;

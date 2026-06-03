@@ -106,6 +106,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const response = await authApi.login(payload);
       return saveUser(mapBackendUser(response.data.user));
     } catch (error) {
+      console.error("Login error:", error);
       throw new Error(getApiErrorMessage(error));
     }
   }, [saveUser]);
