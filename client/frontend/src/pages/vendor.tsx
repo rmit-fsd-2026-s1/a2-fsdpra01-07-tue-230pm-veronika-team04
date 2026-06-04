@@ -88,10 +88,17 @@ export default function VendorPage() {
   const [venues, setVenues] = useState<Venue[]>([]);
   const [isLoadingVenues, setIsLoadingVenues] = useState(false);
   const [venueError, setVenueError] = useState("");
+
   const [isCreateVenueOpen, setIsCreateVenueOpen] = useState(false);
   const [isCreatingVenue, setIsCreatingVenue] = useState(false);
   const [venueForm, setVenueForm] = useState(emptyVenueForm);
   const [venueFormError, setVenueFormError] = useState("");
+
+  const [isEditVenueOpen, setIsEditVenueOpen] = useState(false);
+  const [editingVenue, setEditingVenue] = useState<Venue | null>(null);
+  const [isUpdatingVenue, setIsUpdatingVenue] = useState(false);
+  const [editVenueForm, setEditVenueForm] = useState(emptyVenueForm);
+  const [editVenueFormError, setEditVenueFormError] = useState("");
 
   // Will validate user login and if they're a vendor role
   useEffect(() => {
@@ -432,14 +439,22 @@ export default function VendorPage() {
                   <p className="mt-4 text-sm text-zinc-700">
                     Capacity: {venue.capacity} guests
                   </p>
+                  <div className="mt-4 flex gap-2">
                   <Button
-                    mt={4}
+                    size="sm"
+                    variant="outline"
+                    // onClick={() => openEditVenue(venue)}
+                  >
+                    Edit
+                  </Button>
+                  <Button
                     size="sm"
                     colorPalette={venue.status === "available" ? "red" : "green"}
                     variant={venue.status === "available" ? "subtle" : "solid"}
                   >
                     {venue.status === "available" ? "Block" : "Unblock"}
                   </Button>
+                </div>
                 </article>
               ))}
               </div>
