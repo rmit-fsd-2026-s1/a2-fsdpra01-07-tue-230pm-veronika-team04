@@ -47,4 +47,6 @@ export const venueApi = {
     apiClient.get<VenueListResponse>(`/venues/vendor/${vendorId}`),
   createVenue: (payload: CreateVenuePayload) =>
     apiClient.post<VenueResponse>("/venues", payload),
+  updateVenue: (venueId: string | number, payload: Partial<CreateVenuePayload>) =>
+    apiClient.put<VenueResponse>(`/venues/${venueId}`, payload),
 };
