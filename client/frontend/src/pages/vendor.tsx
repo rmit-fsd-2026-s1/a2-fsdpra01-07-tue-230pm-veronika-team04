@@ -4,14 +4,8 @@ import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
 import { FaBuilding, FaChartBar, FaStar, FaUsers } from "react-icons/fa";
 
-import {
-  DialogBody,
-  DialogCloseTrigger,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogRoot,
-  DialogTitle,
+import {DialogBody, DialogCloseTrigger, DialogContent, DialogFooter,
+  DialogHeader, DialogRoot, DialogTitle,
 } from "@/components/ui/dialog";
 import { Field } from "@/components/ui/field";
 import { toaster } from "@/components/ui/toaster";
@@ -68,6 +62,7 @@ const summaryRows = [
     totalApplications: 2,
   },
 ];
+// TODO: DELETE LATER Sample hard-coded data
 
 const emptyVenueForm = {
   name: "",
@@ -84,16 +79,21 @@ export default function VendorPage() {
   const { currentUser, isAuthReady } = useAuth();
   const vendorAccountID = currentUser?.accountID;
   const currentUserRole = currentUser?.role;
+
+  // useState for switching tabs
   const [activeSection, setActiveSection] = useState<"applicants" | "venues" | "visualSummary">("applicants");
+
   const [venues, setVenues] = useState<Venue[]>([]);
   const [isLoadingVenues, setIsLoadingVenues] = useState(false);
   const [venueError, setVenueError] = useState("");
 
+  // useState for creation form
   const [isCreateVenueOpen, setIsCreateVenueOpen] = useState(false);
   const [isCreatingVenue, setIsCreatingVenue] = useState(false);
   const [venueForm, setVenueForm] = useState(emptyVenueForm);
   const [venueFormError, setVenueFormError] = useState("");
 
+  // useState for editing form
   const [isEditVenueOpen, setIsEditVenueOpen] = useState(false);
   const [editingVenue, setEditingVenue] = useState<Venue | null>(null);
   const [isUpdatingVenue, setIsUpdatingVenue] = useState(false);
@@ -110,6 +110,13 @@ export default function VendorPage() {
     }
   }, [currentUser, isAuthReady, router]);
 
+  // Default fallback
+  if (!isAuthReady || !currentUser || currentUser.role !== "vendor") {
+    return null;
+  }
+  const displayName = currentUser.name || "Vendor";
+  const venueMessage = !vendorAccountID ? "No vendor account is linked to this user." : venueError;
+
   // Will validate vendor role, then fetch the account's associated vendors
   useEffect(() => {
     if (!isAuthReady || currentUserRole !== "vendor") {
@@ -123,6 +130,7 @@ export default function VendorPage() {
     let isMounted = true;
 
     const accountID = vendorAccountID;
+
     async function fetchVenues() {
       setIsLoadingVenues(true);
       setVenueError("");
@@ -154,7 +162,7 @@ export default function VendorPage() {
   }, [currentUserRole, isAuthReady, vendorAccountID]);
 
 
-
+  // Triggers after submittingor updating a new venue
   async function refreshVendorVenues(accountID: number) {
     const response = await venueApi.getVenueByVendorId(accountID);
     setVenues(response.data.venues);
@@ -167,6 +175,7 @@ export default function VendorPage() {
     }));
   }
 
+  // Handler for submitting new venues
   async function handleCreateVenue(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
 
@@ -213,18 +222,12 @@ export default function VendorPage() {
     }
   }
 
-  if (!isAuthReady || !currentUser || currentUser.role !== "vendor") {
-    return null;
-  }
-
-  const displayName = currentUser.name || "Vendor";
-  const venueMessage = !vendorAccountID ? "No vendor account is linked to this user." : venueError;
-
 
   function updateEditVenueForm(field: keyof typeof emptyVenueForm, value: string) {
-  setEditVenueForm((current) => ({ ...current, [field]: value }));
-}
+    setEditVenueForm((current) => ({ ...current, [field]: value }));
+  }
 
+  // When the user clicks 'Edit' the form is pre-populated with the respective venue data
   function openEditVenue(venue: Venue) {
     setEditingVenue(venue);
     setEditVenueForm({
@@ -281,6 +284,7 @@ export default function VendorPage() {
     }
   }
 
+  // Both CREATE and UPDATE functions use the same validation function
   function validateVenueForm(form: typeof emptyVenueForm) {
     const capacity = Number(form.capacity);
     const price = Number(form.price);
