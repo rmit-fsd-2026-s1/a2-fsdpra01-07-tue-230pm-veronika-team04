@@ -2,7 +2,7 @@ import { Badge, Button, HStack, Icon, Input } from "@chakra-ui/react";
 import { useRouter } from "next/router";
 import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
-import { FaBuilding, FaChartBar, FaStar, FaUsers, FaTrash, FaPen } from "react-icons/fa";
+import { FaBuilding, FaChartBar, FaStar, FaUsers, FaTrash, FaEdit, FaBan} from "react-icons/fa";
 
 import {DialogBody, DialogCloseTrigger, DialogContent, DialogFooter,
   DialogHeader, DialogRoot, DialogTitle,
@@ -99,6 +99,10 @@ export default function VendorPage() {
   const [isUpdatingVenue, setIsUpdatingVenue] = useState(false);
   const [editVenueForm, setEditVenueForm] = useState(emptyVenueForm);
   const [editVenueFormError, setEditVenueFormError] = useState("");
+
+  // useState for deleting a venue
+  const [isDeletingVenue, setIsDeletingVenue] = useState(false);
+  const [venueToDelete, setVenueToDelete] = useState<Venue | null>(null);
 
   // Will validate user login and if they're a vendor role
   useEffect(() => {
@@ -297,6 +301,36 @@ export default function VendorPage() {
       return "Price must be zero or greater.";
     return "";
   }
+
+  async function handleDeleteVenue() {
+  if (!venueToDelete || !vendorAccountID) return;
+
+  setIsDeletingVenue(true);
+  try {
+    // TODO: wire up API call
+    console.log("Delete venue:", venueToDelete.id);
+    await refreshVendorVenues(vendorAccountID);
+    toaster.create({
+      title: "Venue deleted",
+      description: `${venueToDelete.name} has been removed.`,
+      type: "success",
+      duration: 3000,
+      closable: true,
+    });
+  } catch (error) {
+    console.error("Error deleting venue:", error);
+    toaster.create({
+      title: "Delete failed",
+      description: "Unable to delete venue right now.",
+      type: "error",
+      duration: 3000,
+      closable: true,
+    });
+  } finally {
+    setIsDeletingVenue(false);
+    setVenueToDelete(null);
+  }
+}
 
 
 
@@ -499,7 +533,7 @@ export default function VendorPage() {
                       variant="outline"
                       onClick={() => openEditVenue(venue)}
                     >
-                      <Icon as={FaPen}/>
+                      <Icon as={FaEdit}/>
                       Edit
                     </Button>
                     <Button
@@ -507,13 +541,14 @@ export default function VendorPage() {
                       colorPalette={venue.status === "available" ? "red" : "green"}
                       variant={venue.status === "available" ? "subtle" : "solid"}
                     >
+                      <Icon as={FaBan}/>
                       {venue.status === "available" ? "Block" : "Unblock"}
                     </Button>
                     </div>
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => openEditVenue(venue)}
+                      onClick={() => setVenueToDelete(venue)}
                       colorPalette="red"
                     >
                       <Icon as={FaTrash}/>
@@ -719,6 +754,42 @@ export default function VendorPage() {
           </DialogContent>
         </DialogRoot>
         {/* Edit Venue Form */}
+
+        {/* Delete Venue Confirmation */}
+        <DialogRoot
+          open={venueToDelete !== null}
+          onOpenChange={(details) => { if (!details.open) setVenueToDelete(null); }}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle color="black">Delete Venue</DialogTitle>
+            </DialogHeader>
+            <DialogCloseTrigger />
+            <DialogBody>
+              <p className="text-sm text-zinc-700">
+                Are you sure you want to delete{" "}
+                <span className="font-semibold text-zinc-950">{venueToDelete?.name}</span>?
+                This action cannot be undone.
+              </p>
+            </DialogBody>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setVenueToDelete(null)}
+              >
+                Cancel
+              </Button>
+              <Button
+                colorPalette="red"
+                loading={isDeletingVenue}
+                onClick={handleDeleteVenue}
+              >
+                Delete
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </DialogRoot>
+        {/* Delete Venue Confirmation */}
 
 
 
