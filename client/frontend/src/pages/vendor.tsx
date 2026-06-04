@@ -1,6 +1,6 @@
-import { Badge, Button, HStack, Icon, Separator } from "@chakra-ui/react";
+import { Badge, Button, HStack, Icon } from "@chakra-ui/react";
 import { useRouter } from "next/router";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { FaBuilding, FaChartBar, FaStar, FaUsers } from "react-icons/fa";
 
 import Layout from "@/components/layout/Layout";
@@ -74,6 +74,9 @@ const summaryRows = [
 export default function VendorPage() {
   const router = useRouter();
   const { currentUser, isAuthReady } = useAuth();
+  const [activeSection, setActiveSection] = useState<
+    "applicants" | "venues" | "visualSummary"
+  >("applicants");
 
   useEffect(() => {
     if (!isAuthReady) {
@@ -114,167 +117,181 @@ export default function VendorPage() {
 
       <section className="space-y-8">
         <div className="flex flex-wrap gap-3">
-          <Button colorPalette="green" variant="solid">
+          <Button
+            colorPalette={activeSection === "applicants" ? "green" : "gray"}
+            variant={activeSection === "applicants" ? "solid" : "outline"}
+            onClick={() => setActiveSection("applicants")}
+          >
             <Icon as={FaUsers} />
             Applicants
           </Button>
-          <Button colorPalette="gray" variant="outline">
+          <Button
+            colorPalette={activeSection === "venues" ? "green" : "gray"}
+            variant={activeSection === "venues" ? "solid" : "outline"}
+            onClick={() => setActiveSection("venues")}
+          >
             <Icon as={FaBuilding} />
             My Venues
           </Button>
-          <Button colorPalette="gray" variant="outline">
+          <Button
+            colorPalette={activeSection === "visualSummary" ? "green" : "gray"}
+            variant={activeSection === "visualSummary" ? "solid" : "outline"}
+            onClick={() => setActiveSection("visualSummary")}
+          >
             <Icon as={FaChartBar} />
             Visual Summary
           </Button>
         </div>
 
-        <section className="space-y-4">
-          <div>
-            <h2 className="text-xl font-semibold text-zinc-950">Applicants</h2>
-            <p className="mt-1 text-sm text-zinc-600">
-              Static preview of booking applications for your venues.
-            </p>
-          </div>
+        {activeSection === "applicants" && (
+          <section className="space-y-4">
+            <div>
+              <h2 className="text-xl font-semibold text-zinc-950">Applicants</h2>
+              <p className="mt-1 text-sm text-zinc-600">
+                Static preview of booking applications for your venues.
+              </p>
+            </div>
 
-          <div className="flex flex-wrap gap-3">
-            <Button size="sm" colorPalette="green">Sort: High to Low</Button>
-            <Button size="sm" colorPalette="gray" variant="outline">
-              Sort: Low to High
-            </Button>
-          </div>
+            <div className="flex flex-wrap gap-3">
+              <Button size="sm" colorPalette="green">Sort: High to Low</Button>
+              <Button size="sm" colorPalette="gray" variant="outline">
+                Sort: Low to High
+              </Button>
+            </div>
 
-          <div className="grid gap-4">
-            {sampleApplicants.map((application) => (
-              <article
-                key={application.id}
-                className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm"
-              >
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <h3 className="text-lg font-semibold text-zinc-950">
-                      {application.eventName}
-                    </h3>
-                    <p className="mt-1 text-sm text-zinc-600">
-                      {application.venueName} - {application.hirerEmail}
+            <div className="grid gap-4">
+              {sampleApplicants.map((application) => (
+                <article
+                  key={application.id}
+                  className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <h3 className="text-lg font-semibold text-zinc-950">
+                        {application.eventName}
+                      </h3>
+                      <p className="mt-1 text-sm text-zinc-600">
+                        {application.venueName} - {application.hirerEmail}
+                      </p>
+                    </div>
+                    <Badge
+                      colorPalette={application.status === "Accepted" ? "green" : "yellow"}
+                      variant="subtle"
+                    >
+                      {application.status}
+                    </Badge>
+                  </div>
+
+                  <div className="mt-4 grid gap-3 text-sm text-zinc-700 sm:grid-cols-4">
+                    <p>
+                      <span className="block font-medium text-zinc-950">Guests</span>
+                      {application.guestCount}
+                    </p>
+                    <p>
+                      <span className="block font-medium text-zinc-950">Date</span>
+                      {application.eventDate}
+                    </p>
+                    <p>
+                      <span className="block font-medium text-zinc-950">Time</span>
+                      {application.eventTime}
+                    </p>
+                    <p>
+                      <span className="block font-medium text-zinc-950">Duration</span>
+                      {application.duration}
                     </p>
                   </div>
-                  <Badge
-                    colorPalette={application.status === "Accepted" ? "green" : "yellow"}
-                    variant="subtle"
-                  >
-                    {application.status}
-                  </Badge>
-                </div>
 
-                <div className="mt-4 grid gap-3 text-sm text-zinc-700 sm:grid-cols-4">
-                  <p>
-                    <span className="block font-medium text-zinc-950">Guests</span>
-                    {application.guestCount}
-                  </p>
-                  <p>
-                    <span className="block font-medium text-zinc-950">Date</span>
-                    {application.eventDate}
-                  </p>
-                  <p>
-                    <span className="block font-medium text-zinc-950">Time</span>
-                    {application.eventTime}
-                  </p>
-                  <p>
-                    <span className="block font-medium text-zinc-950">Duration</span>
-                    {application.duration}
-                  </p>
-                </div>
+                  <HStack gap={1} mt={4}>
+                    {Array.from({ length: 5 }).map((_, index) => (
+                      <Icon
+                        key={index}
+                        as={FaStar}
+                        color={index < Math.round(application.averageRating) ? "green.400" : "gray.300"}
+                      />
+                    ))}
+                    <span className="ml-2 text-sm text-zinc-600">
+                      {application.averageRating.toFixed(1)}
+                    </span>
+                  </HStack>
+                </article>
+              ))}
+            </div>
+          </section>
+        )}
 
-                <HStack gap={1} mt={4}>
-                  {Array.from({ length: 5 }).map((_, index) => (
-                    <Icon
-                      key={index}
-                      as={FaStar}
-                      color={index < Math.round(application.averageRating) ? "green.400" : "gray.300"}
-                    />
-                  ))}
-                  <span className="ml-2 text-sm text-zinc-600">
-                    {application.averageRating.toFixed(1)}
-                  </span>
-                </HStack>
-              </article>
-            ))}
-          </div>
-        </section>
+        {activeSection === "venues" && (
+          <section className="space-y-4">
+            <div>
+              <h2 className="text-xl font-semibold text-zinc-950">My Venues</h2>
+              <p className="mt-1 text-sm text-zinc-600">
+                Static venue cards ready for future status controls.
+              </p>
+            </div>
 
-        <Separator />
-
-        <section className="space-y-4">
-          <div>
-            <h2 className="text-xl font-semibold text-zinc-950">My Venues</h2>
-            <p className="mt-1 text-sm text-zinc-600">
-              Static venue cards ready for future status controls.
-            </p>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            {sampleVenues.map((venue) => (
-              <article
-                key={venue.id}
-                className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <h3 className="text-lg font-semibold text-zinc-950">
-                      {venue.name}
-                    </h3>
-                    <p className="mt-1 text-sm text-zinc-600">{venue.location}</p>
-                  </div>
-                  <Badge
-                    colorPalette={venue.status === "available" ? "green" : "red"}
-                    variant="subtle"
-                  >
-                    {venue.status}
-                  </Badge>
-                </div>
-                <p className="mt-4 text-sm text-zinc-700">
-                  Capacity: {venue.capacity} guests
-                </p>
-                <Button
-                  mt={4}
-                  size="sm"
-                  colorPalette={venue.status === "available" ? "red" : "green"}
-                  variant={venue.status === "available" ? "subtle" : "solid"}
+            <div className="grid gap-4 md:grid-cols-2">
+              {sampleVenues.map((venue) => (
+                <article
+                  key={venue.id}
+                  className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm"
                 >
-                  {venue.status === "available" ? "Block" : "Unblock"}
-                </Button>
-              </article>
-            ))}
-          </div>
-        </section>
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h3 className="text-lg font-semibold text-zinc-950">
+                        {venue.name}
+                      </h3>
+                      <p className="mt-1 text-sm text-zinc-600">{venue.location}</p>
+                    </div>
+                    <Badge
+                      colorPalette={venue.status === "available" ? "green" : "red"}
+                      variant="subtle"
+                    >
+                      {venue.status}
+                    </Badge>
+                  </div>
+                  <p className="mt-4 text-sm text-zinc-700">
+                    Capacity: {venue.capacity} guests
+                  </p>
+                  <Button
+                    mt={4}
+                    size="sm"
+                    colorPalette={venue.status === "available" ? "red" : "green"}
+                    variant={venue.status === "available" ? "subtle" : "solid"}
+                  >
+                    {venue.status === "available" ? "Block" : "Unblock"}
+                  </Button>
+                </article>
+              ))}
+            </div>
+          </section>
+        )}
 
-        <Separator />
-
-        <section className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
-          <h2 className="text-xl font-semibold text-zinc-950">Visual Summary</h2>
-          <div className="mt-4 overflow-x-auto">
-            <table className="min-w-full text-left text-sm text-zinc-700">
-              <thead className="border-b border-zinc-200 text-zinc-950">
-                <tr>
-                  <th className="pb-3 pr-4 font-semibold">Section</th>
-                  <th className="pb-3 pr-4 font-semibold">Hirer Email</th>
-                  <th className="pb-3 pr-4 font-semibold">Chosen Count</th>
-                  <th className="pb-3 font-semibold">Total Applications</th>
-                </tr>
-              </thead>
-              <tbody>
-                {summaryRows.map((row) => (
-                  <tr key={row.section} className="border-b border-zinc-100">
-                    <td className="py-3 pr-4">{row.section}</td>
-                    <td className="py-3 pr-4">{row.hirerEmail}</td>
-                    <td className="py-3 pr-4">{row.chosenCount}</td>
-                    <td className="py-3">{row.totalApplications}</td>
+        {activeSection === "visualSummary" && (
+          <section className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
+            <h2 className="text-xl font-semibold text-zinc-950">Visual Summary</h2>
+            <div className="mt-4 overflow-x-auto">
+              <table className="min-w-full text-left text-sm text-zinc-700">
+                <thead className="border-b border-zinc-200 text-zinc-950">
+                  <tr>
+                    <th className="pb-3 pr-4 font-semibold">Section</th>
+                    <th className="pb-3 pr-4 font-semibold">Hirer Email</th>
+                    <th className="pb-3 pr-4 font-semibold">Chosen Count</th>
+                    <th className="pb-3 font-semibold">Total Applications</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
+                </thead>
+                <tbody>
+                  {summaryRows.map((row) => (
+                    <tr key={row.section} className="border-b border-zinc-100">
+                      <td className="py-3 pr-4">{row.section}</td>
+                      <td className="py-3 pr-4">{row.hirerEmail}</td>
+                      <td className="py-3 pr-4">{row.chosenCount}</td>
+                      <td className="py-3">{row.totalApplications}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
       </section>
     </Layout>
   );
