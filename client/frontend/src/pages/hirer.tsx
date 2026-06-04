@@ -89,7 +89,6 @@ export default function HirerPage() {
     { label: "My Dashboard", href: "/hirer" },
   ];
 
-<<<<<<< HEAD
   function sectionButtonStyles(section: "browse" | "preferred" | "history") {
     const isActive = activeSection === section;
 
@@ -104,8 +103,6 @@ export default function HirerPage() {
     };
   }
 
-=======
->>>>>>> main
   if (!isAuthReady) {
     return (
       <Layout
@@ -142,7 +139,6 @@ export default function HirerPage() {
 
       <section className="space-y-4">
         <div className="flex flex-wrap gap-3">
-<<<<<<< HEAD
           <Button
             type="button"
             onClick={() => setActiveSection("browse")}
@@ -170,41 +166,6 @@ export default function HirerPage() {
           >
             Booking History
           </Button>
-=======
-          <button
-            type="button"
-            onClick={() => setActiveSection("browse")}
-            className={`rounded px-4 py-2 text-sm ${
-              activeSection === "browse"
-                ? "bg-[#095d44] text-white"
-                : "border border-zinc-300 bg-white text-zinc-700"
-            }`}
-          >
-            View Venues
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveSection("preferred")}
-            className={`rounded px-4 py-2 text-sm ${
-              activeSection === "preferred"
-                ? "bg-[#095d44] text-white"
-                : "border border-zinc-300 bg-white text-zinc-700"
-            }`}
-          >
-            Preferred Venues
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveSection("history")}
-            className={`rounded px-4 py-2 text-sm ${
-              activeSection === "history"
-                ? "bg-[#095d44] text-white"
-                : "border border-zinc-300 bg-white text-zinc-700"
-            }`}
-          >
-            Booking History
-          </button>
->>>>>>> main
         </div>
 
         {activeSection === "browse" ? (
@@ -282,7 +243,6 @@ export default function HirerPage() {
               </div>
 
               <div className="mt-4 flex flex-wrap gap-3">
-<<<<<<< HEAD
                 <Button
                   type="submit"
                   size="sm"
@@ -302,21 +262,6 @@ export default function HirerPage() {
                 >
                   Clear
                 </Button>
-=======
-                <button
-                  type="submit"
-                  className="rounded bg-[#095d44] px-4 py-2 text-sm font-medium text-white hover:opacity-90"
-                >
-                  Search
-                </button>
-                <button
-                  type="button"
-                  onClick={handleClearFilters}
-                  className="rounded border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
-                >
-                  Clear
-                </button>
->>>>>>> main
               </div>
             </form>
 
