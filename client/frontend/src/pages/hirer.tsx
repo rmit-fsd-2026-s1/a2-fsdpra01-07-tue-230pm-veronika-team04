@@ -10,6 +10,9 @@ import type { Venue } from "@/types/venue";
 export default function HirerPage() {
   const router = useRouter();
   const { currentUser, isAuthReady } = useAuth();
+  const [activeSection, setActiveSection] = useState<
+    "browse" | "preferred" | "history"
+  >("browse");
   const [venues, setVenues] = useState<Venue[]>([]);
   const [name, setName] = useState("");
   const [location, setLocation] = useState("");
@@ -80,7 +83,24 @@ export default function HirerPage() {
     await loadAllVenues();
   }
 
-  if (!isAuthReady || !currentUser || currentUser.role !== "hirer") {
+  const navItems = [
+    { label: "Home", href: "/" },
+    { label: "My Dashboard", href: "/hirer" },
+  ];
+
+  if (!isAuthReady) {
+    return (
+      <Layout
+        headerTitle="Venue Vendors"
+        footerText="Student project footer"
+        navItems={navItems}
+      >
+        <p className="py-4 text-sm text-zinc-600">Loading...</p>
+      </Layout>
+    );
+  }
+
+  if (!currentUser || currentUser.role !== "hirer") {
     return null;
   }
 
@@ -88,10 +108,7 @@ export default function HirerPage() {
     <Layout
       headerTitle="Venue Vendors"
       footerText="Student project footer"
-      navItems={[
-        { label: "Home", href: "/" },
-        { label: "My Dashboard", href: "/hirer" },
-      ]}
+      navItems={navItems}
     >
       <section className="space-y-3 py-4">
         <p className="text-sm font-semibold uppercase text-zinc-500">
@@ -101,95 +118,163 @@ export default function HirerPage() {
           Welcome back, {currentUser.name || "Hirer"}
         </h1>
         <p className="text-zinc-700">
-          Browse venues and search for a suitable place for your event.
+          Review your dashboard and continue exploring venues from one place.
         </p>
       </section>
 
       <section className="space-y-4">
-        <form className="rounded border border-zinc-300 bg-white p-4" onSubmit={handleSearch}>
-          <div className="grid gap-4 md:grid-cols-4">
-            <div>
-              <label className="mb-1 block text-sm text-zinc-900" htmlFor="name">
-                Venue name
-              </label>
-              <input
-                id="name"
-                type="text"
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-                placeholder="Harbour"
-                className="w-full rounded border border-zinc-500 px-3 py-2 text-sm"
-              />
-            </div>
+        <div className="flex flex-wrap gap-3">
+          <button
+            type="button"
+            onClick={() => setActiveSection("browse")}
+            className={`rounded px-4 py-2 text-sm ${
+              activeSection === "browse"
+                ? "bg-[#095d44] text-white"
+                : "border border-zinc-300 bg-white text-zinc-700"
+            }`}
+          >
+            View Venues
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveSection("preferred")}
+            className={`rounded px-4 py-2 text-sm ${
+              activeSection === "preferred"
+                ? "bg-[#095d44] text-white"
+                : "border border-zinc-300 bg-white text-zinc-700"
+            }`}
+          >
+            Preferred Venues
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveSection("history")}
+            className={`rounded px-4 py-2 text-sm ${
+              activeSection === "history"
+                ? "bg-[#095d44] text-white"
+                : "border border-zinc-300 bg-white text-zinc-700"
+            }`}
+          >
+            Booking History
+          </button>
+        </div>
 
-            <div>
-              <label className="mb-1 block text-sm text-zinc-900" htmlFor="location">
-                Location
-              </label>
-              <input
-                id="location"
-                type="text"
-                value={location}
-                onChange={(event) => setLocation(event.target.value)}
-                placeholder="Melbourne"
-                className="w-full rounded border border-zinc-500 px-3 py-2 text-sm"
-              />
-            </div>
-
-            <div>
-              <label className="mb-1 block text-sm text-zinc-900" htmlFor="capacity">
-                Minimum capacity
-              </label>
-              <input
-                id="capacity"
-                type="number"
-                min="0"
-                value={capacity}
-                onChange={(event) => setCapacity(event.target.value)}
-                placeholder="100"
-                className="w-full rounded border border-zinc-500 px-3 py-2 text-sm"
-              />
-            </div>
-
-            <div>
-              <label
-                className="mb-1 block text-sm text-zinc-900"
-                htmlFor="suitability"
-              >
-                Suitability
-              </label>
-              <input
-                id="suitability"
-                type="text"
-                value={suitability}
-                onChange={(event) => setSuitability(event.target.value)}
-                placeholder="wedding"
-                className="w-full rounded border border-zinc-500 px-3 py-2 text-sm"
-              />
-            </div>
-          </div>
-
-          <div className="mt-4 flex flex-wrap gap-3">
-            <button
-              type="submit"
-              className="rounded bg-[#095d44] px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+        {activeSection === "browse" ? (
+          <div className="space-y-4">
+            <form
+              className="rounded border border-zinc-300 bg-white p-4"
+              onSubmit={handleSearch}
             >
-              Search
-            </button>
-            <button
-              type="button"
-              onClick={handleClearFilters}
-              className="rounded border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
-            >
-              Clear
-            </button>
+              <div className="grid gap-4 md:grid-cols-4">
+                <div>
+                  <label className="mb-1 block text-sm text-zinc-900" htmlFor="name">
+                    Venue name
+                  </label>
+                  <input
+                    id="name"
+                    type="text"
+                    value={name}
+                    onChange={(event) => setName(event.target.value)}
+                    placeholder="Harbour"
+                    className="w-full rounded border border-zinc-500 px-3 py-2 text-sm"
+                  />
+                </div>
+
+                <div>
+                  <label
+                    className="mb-1 block text-sm text-zinc-900"
+                    htmlFor="location"
+                  >
+                    Location
+                  </label>
+                  <input
+                    id="location"
+                    type="text"
+                    value={location}
+                    onChange={(event) => setLocation(event.target.value)}
+                    placeholder="Melbourne"
+                    className="w-full rounded border border-zinc-500 px-3 py-2 text-sm"
+                  />
+                </div>
+
+                <div>
+                  <label
+                    className="mb-1 block text-sm text-zinc-900"
+                    htmlFor="capacity"
+                  >
+                    Minimum capacity
+                  </label>
+                  <input
+                    id="capacity"
+                    type="number"
+                    min="0"
+                    value={capacity}
+                    onChange={(event) => setCapacity(event.target.value)}
+                    placeholder="100"
+                    className="w-full rounded border border-zinc-500 px-3 py-2 text-sm"
+                  />
+                </div>
+
+                <div>
+                  <label
+                    className="mb-1 block text-sm text-zinc-900"
+                    htmlFor="suitability"
+                  >
+                    Suitability
+                  </label>
+                  <input
+                    id="suitability"
+                    type="text"
+                    value={suitability}
+                    onChange={(event) => setSuitability(event.target.value)}
+                    placeholder="wedding"
+                    className="w-full rounded border border-zinc-500 px-3 py-2 text-sm"
+                  />
+                </div>
+              </div>
+
+              <div className="mt-4 flex flex-wrap gap-3">
+                <button
+                  type="submit"
+                  className="rounded bg-[#095d44] px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+                >
+                  Search
+                </button>
+                <button
+                  type="button"
+                  onClick={handleClearFilters}
+                  className="rounded border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+                >
+                  Clear
+                </button>
+              </div>
+            </form>
+
+            <VenueList venues={venues} isLoading={isLoading} error={error} />
           </div>
-        </form>
-
-        <VenueList venues={venues} isLoading={isLoading} error={error} />
-
-        {/* TODO: Restore preferred venue list after browse/search works. */}
-        {/* TODO: Restore apply flow after booking backend is ready. */}
+        ) : activeSection === "preferred" ? (
+          <div className="rounded border border-zinc-300 bg-white p-6">
+            <h2 className="text-xl font-semibold text-zinc-950">
+              Preferred venues
+            </h2>
+            <p className="mt-2 text-sm text-zinc-600">
+              Preferred venue ranking will be restored here after the browse
+              section is stable.
+            </p>
+            {/* TODO: Restore preferred venue list, ranking, remove, and apply actions. */}
+          </div>
+        ) : (
+          <div className="rounded border border-zinc-300 bg-white p-6">
+            <h2 className="text-xl font-semibold text-zinc-950">
+              Booking history
+            </h2>
+            <p className="mt-2 text-sm text-zinc-600">
+              Booking/application history will be restored here after booking
+              storage or backend booking APIs are ready.
+            </p>
+            {/* TODO: Restore BookingHistoryList when booking flow is ready. */}
+          </div>
+        )}
       </section>
     </Layout>
   );
