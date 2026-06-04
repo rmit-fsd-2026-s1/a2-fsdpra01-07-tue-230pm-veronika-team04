@@ -167,29 +167,6 @@ export default function VendorPage() {
     }));
   }
 
-  function validateVenueForm() {
-    const capacity = Number(venueForm.capacity);
-    const price = Number(venueForm.price);
-
-    if (!venueForm.name.trim()) {
-      return "Venue name is required.";
-    }
-
-    if (!venueForm.location.trim()) {
-      return "Location is required.";
-    }
-
-    if (!Number.isInteger(capacity) || capacity <= 0) {
-      return "Capacity must be a positive whole number.";
-    }
-
-    if (Number.isNaN(price) || price < 0) {
-      return "Price must be zero or greater.";
-    }
-
-    return "";
-  }
-
   async function handleCreateVenue(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
 
@@ -198,7 +175,7 @@ export default function VendorPage() {
       return;
     }
 
-    const validationMessage = validateVenueForm();
+    const validationMessage = validateVenueForm(venueForm);
 
     if (validationMessage) {
       setVenueFormError(validationMessage);
@@ -244,6 +221,78 @@ export default function VendorPage() {
   const venueMessage = !vendorAccountID ? "No vendor account is linked to this user." : venueError;
 
 
+  function updateEditVenueForm(field: keyof typeof emptyVenueForm, value: string) {
+  setEditVenueForm((current) => ({ ...current, [field]: value }));
+}
+
+  function openEditVenue(venue: Venue) {
+    setEditingVenue(venue);
+    setEditVenueForm({
+      name: venue.name,
+      location: venue.location,
+      capacity: String(venue.capacity),
+      price: String(venue.price),
+      description: venue.description ?? "",
+      image: venue.image ?? "",
+    });
+    setEditVenueFormError("");
+    setIsEditVenueOpen(true);
+  }
+
+  async function handleUpdateVenue(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+
+    if (!editingVenue || !vendorAccountID) return;
+
+    const validationMessage = validateVenueForm(editVenueForm); // reuse existing validation
+    if (validationMessage) {
+      setEditVenueFormError(validationMessage);
+      return;
+    }
+
+    setIsUpdatingVenue(true);
+    setEditVenueFormError("");
+
+    try {
+      await venueApi.updateVenue(editingVenue.id, {
+        vendorAccountID,
+        name: editVenueForm.name.trim(),
+        location: editVenueForm.location.trim(),
+        capacity: Number(editVenueForm.capacity),
+        price: Number(editVenueForm.price),
+        description: editVenueForm.description.trim() || undefined,
+        image: editVenueForm.image.trim() || undefined,
+      });
+      await refreshVendorVenues(vendorAccountID);
+      setIsEditVenueOpen(false);
+      setEditingVenue(null);
+      toaster.create({
+        title: "Venue updated",
+        description: "Your venue has been updated.",
+        type: "success",
+        duration: 3000,
+        closable: true,
+      });
+    } catch (error) {
+      console.error("Error updating venue:", error);
+      setEditVenueFormError("Unable to update venue right now.");
+    } finally {
+      setIsUpdatingVenue(false);
+    }
+  }
+
+  function validateVenueForm(form: typeof emptyVenueForm) {
+    const capacity = Number(form.capacity);
+    const price = Number(form.price);
+
+    if (!form.name.trim())     return "Venue name is required.";
+    if (!form.location.trim()) return "Location is required.";
+    if (!Number.isInteger(capacity) || capacity <= 0)
+      return "Capacity must be a positive whole number.";
+    if (Number.isNaN(price) || price < 0)
+      return "Price must be zero or greater.";
+    return "";
+  }
 
 
 
@@ -443,7 +492,7 @@ export default function VendorPage() {
                   <Button
                     size="sm"
                     variant="outline"
-                    // onClick={() => openEditVenue(venue)}
+                    onClick={() => openEditVenue(venue)}
                   >
                     Edit
                   </Button>
@@ -559,6 +608,102 @@ export default function VendorPage() {
           </DialogContent>
         </DialogRoot>
         {/* Create Venue Form */}
+
+
+        {/* Edit Venue Form */}
+        <DialogRoot
+          open={isEditVenueOpen}
+          onOpenChange={(details) => setIsEditVenueOpen(details.open)}
+        >
+          <DialogContent>
+            <form onSubmit={handleUpdateVenue}>
+              <DialogHeader>
+                <DialogTitle color="black">Edit Venue</DialogTitle>
+              </DialogHeader>
+              <DialogCloseTrigger />
+              <DialogBody className="space-y-4">
+                {editVenueFormError && (
+                  <p className="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                    {editVenueFormError}
+                  </p>
+                )}
+
+                <Field label="Venue name" color="black">
+                  <Input
+                    value={editVenueForm.name}
+                    onChange={(e) => updateEditVenueForm("name", e.target.value)}
+                    placeholder="Garden Terrace"
+                  />
+                </Field>
+
+                <Field label="Location" color="black">
+                  <Input
+                    value={editVenueForm.location}
+                    onChange={(e) => updateEditVenueForm("location", e.target.value)}
+                    placeholder="Sydney CBD"
+                  />
+                </Field>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field label="Capacity" color="black">
+                    <Input
+                      min={1}
+                      type="number"
+                      value={editVenueForm.capacity}
+                      onChange={(e) => updateEditVenueForm("capacity", e.target.value)}
+                      placeholder="100"
+                    />
+                  </Field>
+                  <Field label="Price" color="black">
+                    <Input
+                      min={0}
+                      step="0.01"
+                      type="number"
+                      value={editVenueForm.price}
+                      onChange={(e) => updateEditVenueForm("price", e.target.value)}
+                      placeholder="2500"
+                    />
+                  </Field>
+                </div>
+
+                <Field label="Description" color="black">
+                  <textarea
+                    className="min-h-24 w-full rounded border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#095d44]"
+                    value={editVenueForm.description}
+                    onChange={(e) => updateEditVenueForm("description", e.target.value)}
+                    placeholder="Short description of the venue"
+                  />
+                </Field>
+
+                <Field label="Image URL" color="black">
+                  <Input
+                    value={editVenueForm.image}
+                    onChange={(e) => updateEditVenueForm("image", e.target.value)}
+                    placeholder="https://example.com/venue.jpg"
+                  />
+                </Field>
+              </DialogBody>
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsEditVenueOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  bg="#095d44"
+                  color="white"
+                  loading={isUpdatingVenue}
+                >
+                  Save Changes
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </DialogRoot>
+        {/* Edit Venue Form */}
 
 
 
