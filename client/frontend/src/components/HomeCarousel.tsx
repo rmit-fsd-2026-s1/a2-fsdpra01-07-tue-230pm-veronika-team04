@@ -6,14 +6,14 @@ const slides = [
     heading: "Smarter venue discovery for every event.",
     paragraph:
       "Browse suitable venues, compare options with clarity, and move from interest to application in a simpler workflow.",
-    imageSrc: "/venue1.jpg",
+    imageSrc: "/carousel_pic1.jpg",
     imageAlt: "Venue carousel image 1",
   },
   {
     heading: "Designed for quality venues and transparent decisions.",
     paragraph:
       "Venue Vendors brings together strong venue opportunities and a fairer, more organised hiring experience for every user.",
-    imageSrc: "/venue1.jpg",
+    imageSrc: "/carousel_pic2.jpg",
     imageAlt: "Venue carousel image 2",
   },
 ];
