@@ -5,7 +5,9 @@ import { FaBuilding, FaChartBar, FaStar, FaUsers } from "react-icons/fa";
 
 import Layout from "@/components/layout/Layout";
 import { useAuth } from "@/context/AuthContext";
+import { venueApi } from "@/services/venueApi"
 
+// TODO: DELETE LATER Sample hard-coded data
 const sampleApplicants = [
   {
     id: 1,
@@ -70,8 +72,14 @@ const summaryRows = [
     totalApplications: 2,
   },
 ];
+// TODO: DELETE LATER Sample hard-coded data
+
+
+// TODO:
 
 export default function VendorPage() {
+
+  
   const router = useRouter();
   const { currentUser, isAuthReady } = useAuth();
   const [activeSection, setActiveSection] = useState<
@@ -93,6 +101,20 @@ export default function VendorPage() {
   }
 
   const displayName = currentUser.name || "Vendor";
+
+  useEffect(() => {
+    if (!currentUser) {
+      // TODO: If no currentUser, replace venue list with a message such as 'You have no assigned venues'.
+    }
+      const fetchVenues = async () => {
+        try {
+          const response = await venueApi.getVenueByVendorId(currentUser.id);
+          console.log("Venues:", response.data.venues);
+        } catch (error) {
+          console.error("Error fetching venues:", error);
+        }
+      };
+    }, []);
 
   return (
     <Layout

@@ -1,5 +1,6 @@
 import apiClient from "./api";
 import type { Venue } from "@/types/venue";
+import type { CurrentUser } from "@/types/user";
 
 type VenueListResponse = {
   message: string;
@@ -28,4 +29,5 @@ export const venueApi = {
     apiClient.get<VenueListResponse>("/venues/search", {
       params: cleanFilters(filters),
     }),
-};
+  // TODO Get venues by vendor ID
+  getVenueByVendorId: (vendorId: string | number) => apiClient.get<VenueListResponse>(`/venues/vendor/${vendorId}`), };

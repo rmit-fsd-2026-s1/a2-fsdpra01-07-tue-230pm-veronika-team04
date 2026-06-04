@@ -186,3 +186,5 @@ export async function searchVenues(
     });
   }
 }
+
+// TODO Get venues by vendor ID, used for vendor to manage their venues in the future.
