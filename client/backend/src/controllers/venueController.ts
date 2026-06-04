@@ -152,6 +152,80 @@ export async function createVenue(req: Request, res: Response): Promise<void> {
   }
 }
 
+export async function updateVenue(req: Request, res: Response): Promise<void> {
+  try {
+    const venueID = Number(req.params.venueID);
+
+    if (!Number.isInteger(venueID) || venueID <= 0) {
+      res.status(400).json({ message: "Invalid venue ID" });
+      return;
+    }
+
+    const vendorAccountID = Number(req.body.vendorAccountID);
+    const venueName = getRequiredString(req.body.name || req.body.venueName);
+    const location = getRequiredString(req.body.location);
+    const description = getRequiredString(req.body.description);
+    const imageUrl = getRequiredString(req.body.image || req.body.imageUrl);
+    const capacity = Number(req.body.capacity);
+    const price = Number(req.body.price);
+
+    if (!Number.isInteger(vendorAccountID) || vendorAccountID <= 0) {
+      res.status(400).json({ message: "Invalid vendor account ID" });
+      return;
+    }
+    if (!venueName) {
+      res.status(400).json({ message: "Venue name is required" });
+      return;
+    }
+    if (!location) {
+      res.status(400).json({ message: "Location is required" });
+      return;
+    }
+    if (!Number.isInteger(capacity) || capacity <= 0) {
+      res.status(400).json({ message: "Capacity must be a positive whole number" });
+      return;
+    }
+    if (Number.isNaN(price) || price < 0) {
+      res.status(400).json({ message: "Price must be zero or greater" });
+      return;
+    }
+
+    const venueRepository = AppDataSource.getRepository(Venue);
+
+    const existingVenue = await venueRepository.findOneBy({ venueID });
+    if (!existingVenue) {
+      res.status(404).json({ message: "Venue not found" });
+      return;
+    }
+
+    existingVenue.vendorAccountID = vendorAccountID;
+    existingVenue.venueName = venueName;
+    existingVenue.location = location;
+    existingVenue.capacity = capacity;
+    existingVenue.price = price.toFixed(2);
+    existingVenue.description = description || null;
+    existingVenue.imageUrl = imageUrl || null;
+
+    const updatedVenue = await venueRepository.save(existingVenue);
+
+    const venueWithRelations = await venueRepository.findOne({
+      where: { venueID: updatedVenue.venueID },
+      relations: {
+        vendorAccount: { user: true },
+        recommendedSuitabilities: { suitabilityTag: true },
+      },
+    });
+
+    res.status(200).json({
+      message: "Venue updated successfully",
+      venue: mapVenue(venueWithRelations || updatedVenue),
+    });
+  } catch (error) {
+    console.error("Update venue failed:", error);
+    res.status(500).json({ message: "Something went wrong. Please try again later." });
+  }
+}
+
 // Maybe not need this function, as the frontend doesn't have a venue details page. 
 // The frontend only uses the searchVenues function which returns all the details needed for the homepage.
 // export async function getVenueByID(

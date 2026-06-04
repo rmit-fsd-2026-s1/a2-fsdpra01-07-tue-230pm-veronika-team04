@@ -1,8 +1,8 @@
 import { Router } from "express";
 import {
   createVenue,
+  updateVenue,
   getAllVenues,
-  // getVenueByID,
   searchVenues,
   getVenueByVendorId,
 } from "../controllers/venueController";
@@ -12,8 +12,7 @@ const router = Router();
 router.get("/search", searchVenues);
 // router.get("/:venueID", getVenueByID);
 router.post("/", createVenue);
-router.put("/:venueID", createVenue); // Reuse createVenue controller for updating since they have similar logic. 
-                                      // The controller will check if the venueID exists to determine whether to create or update.
+router.put("/:venueID", updateVenue);
 router.get("/", getAllVenues);
 router.get("/vendor/:id", getVenueByVendorId);
 
