@@ -2,7 +2,7 @@ import { Badge, Button, HStack, Icon, Input } from "@chakra-ui/react";
 import { useRouter } from "next/router";
 import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
-import { FaBuilding, FaChartBar, FaStar, FaUsers } from "react-icons/fa";
+import { FaBuilding, FaChartBar, FaStar, FaUsers, FaTrash, FaPen } from "react-icons/fa";
 
 import {DialogBody, DialogCloseTrigger, DialogContent, DialogFooter,
   DialogHeader, DialogRoot, DialogTitle,
@@ -492,22 +492,33 @@ export default function VendorPage() {
                   <p className="mt-4 text-sm text-zinc-700">
                     Capacity: {venue.capacity} guests
                   </p>
-                  <div className="mt-4 flex gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => openEditVenue(venue)}
-                  >
-                    Edit
-                  </Button>
-                  <Button
-                    size="sm"
-                    colorPalette={venue.status === "available" ? "red" : "green"}
-                    variant={venue.status === "available" ? "subtle" : "solid"}
-                  >
-                    {venue.status === "available" ? "Block" : "Unblock"}
-                  </Button>
-                </div>
+                  <div className="mt-4 flex items-center justify-between gap-2">
+                    <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => openEditVenue(venue)}
+                    >
+                      <Icon as={FaPen}/>
+                      Edit
+                    </Button>
+                    <Button
+                      size="sm"
+                      colorPalette={venue.status === "available" ? "red" : "green"}
+                      variant={venue.status === "available" ? "subtle" : "solid"}
+                    >
+                      {venue.status === "available" ? "Block" : "Unblock"}
+                    </Button>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => openEditVenue(venue)}
+                      colorPalette="red"
+                    >
+                      <Icon as={FaTrash}/>
+                    </Button>
+                  </div>
                 </article>
               ))}
               </div>
