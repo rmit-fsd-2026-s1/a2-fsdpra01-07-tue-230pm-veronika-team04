@@ -6,6 +6,21 @@ type VenueListResponse = {
   venues: Venue[];
 };
 
+type VenueResponse = {
+  message: string;
+  venue: Venue;
+};
+
+export type CreateVenuePayload = {
+  vendorAccountID: number;
+  name: string;
+  location: string;
+  capacity: number;
+  price: number;
+  description?: string;
+  image?: string;
+};
+
 export type VenueSearchFilters = {
   name?: string;
   location?: string;
@@ -30,4 +45,6 @@ export const venueApi = {
     }),
   getVenueByVendorId: (vendorId: string | number) =>
     apiClient.get<VenueListResponse>(`/venues/vendor/${vendorId}`),
+  createVenue: (payload: CreateVenuePayload) =>
+    apiClient.post<VenueResponse>("/venues", payload),
 };
