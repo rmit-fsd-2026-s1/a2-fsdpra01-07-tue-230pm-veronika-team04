@@ -59,6 +59,10 @@ function mapVenue(venue: Venue) {
   };
 }
 
+function getRequiredString(value: unknown) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
 export async function getAllVenues(_req: Request, res: Response,): Promise<void> {
   try {
     // Fetch every venue, then map them for the frontend format.
@@ -71,6 +75,77 @@ export async function getAllVenues(_req: Request, res: Response,): Promise<void>
     });
   } catch (error) {
     console.error("Get venues failed:", error);
+    res.status(500).json({
+      message: "Something went wrong. Please try again later.",
+    });
+  }
+}
+
+export async function createVenue(req: Request, res: Response): Promise<void> {
+  try {
+    const vendorAccountID = Number(req.body.vendorAccountID);
+    const venueName = getRequiredString(req.body.name || req.body.venueName);
+    const location = getRequiredString(req.body.location);
+    const description = getRequiredString(req.body.description);
+    const imageUrl = getRequiredString(req.body.image || req.body.imageUrl);
+    const capacity = Number(req.body.capacity);
+    const price = Number(req.body.price);
+
+    if (!Number.isInteger(vendorAccountID) || vendorAccountID <= 0) {
+      res.status(400).json({ message: "Invalid vendor account ID" });
+      return;
+    }
+
+    if (!venueName) {
+      res.status(400).json({ message: "Venue name is required" });
+      return;
+    }
+
+    if (!location) {
+      res.status(400).json({ message: "Location is required" });
+      return;
+    }
+
+    if (!Number.isInteger(capacity) || capacity <= 0) {
+      res.status(400).json({ message: "Capacity must be a positive whole number" });
+      return;
+    }
+
+    if (Number.isNaN(price) || price < 0) {
+      res.status(400).json({ message: "Price must be zero or greater" });
+      return;
+    }
+
+    const venueRepository = AppDataSource.getRepository(Venue);
+    const venue = venueRepository.create({
+      vendorAccountID,
+      venueName,
+      location,
+      capacity,
+      price: price.toFixed(2),
+      description: description || null,
+      imageUrl: imageUrl || null,
+      status: "available",
+    });
+    const savedVenue = await venueRepository.save(venue);
+    const venueWithRelations = await venueRepository.findOne({
+      where: { venueID: savedVenue.venueID },
+      relations: {
+        vendorAccount: {
+          user: true,
+        },
+        recommendedSuitabilities: {
+          suitabilityTag: true,
+        },
+      },
+    });
+
+    res.status(201).json({
+      message: "Venue created successfully",
+      venue: mapVenue(venueWithRelations || savedVenue),
+    });
+  } catch (error) {
+    console.error("Create venue failed:", error);
     res.status(500).json({
       message: "Something went wrong. Please try again later.",
     });

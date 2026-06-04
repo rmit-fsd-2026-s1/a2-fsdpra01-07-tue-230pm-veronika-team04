@@ -1,8 +1,20 @@
-import { Badge, Button, HStack, Icon } from "@chakra-ui/react";
+import { Badge, Button, HStack, Icon, Input } from "@chakra-ui/react";
 import { useRouter } from "next/router";
+import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
 import { FaBuilding, FaChartBar, FaStar, FaUsers } from "react-icons/fa";
 
+import {
+  DialogBody,
+  DialogCloseTrigger,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogRoot,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Field } from "@/components/ui/field";
+import { toaster } from "@/components/ui/toaster";
 import Layout from "@/components/layout/Layout";
 import { useAuth } from "@/context/AuthContext";
 import { venueApi } from "@/services/venueApi";
@@ -57,6 +69,15 @@ const summaryRows = [
   },
 ];
 
+const emptyVenueForm = {
+  name: "",
+  location: "",
+  capacity: "",
+  price: "",
+  description: "",
+  image: "",
+};
+
 export default function VendorPage() {
   
   const router = useRouter();
@@ -67,6 +88,10 @@ export default function VendorPage() {
   const [venues, setVenues] = useState<Venue[]>([]);
   const [isLoadingVenues, setIsLoadingVenues] = useState(false);
   const [venueError, setVenueError] = useState("");
+  const [isCreateVenueOpen, setIsCreateVenueOpen] = useState(false);
+  const [isCreatingVenue, setIsCreatingVenue] = useState(false);
+  const [venueForm, setVenueForm] = useState(emptyVenueForm);
+  const [venueFormError, setVenueFormError] = useState("");
 
   // Will validate user login and if they're a vendor role
   useEffect(() => {
@@ -121,14 +146,104 @@ export default function VendorPage() {
     };
   }, [currentUserRole, isAuthReady, vendorAccountID]);
 
+
+
+  async function refreshVendorVenues(accountID: number) {
+    const response = await venueApi.getVenueByVendorId(accountID);
+    setVenues(response.data.venues);
+  }
+
+  function updateVenueForm(field: keyof typeof emptyVenueForm, value: string) {
+    setVenueForm((currentForm) => ({
+      ...currentForm,
+      [field]: value,
+    }));
+  }
+
+  function validateVenueForm() {
+    const capacity = Number(venueForm.capacity);
+    const price = Number(venueForm.price);
+
+    if (!venueForm.name.trim()) {
+      return "Venue name is required.";
+    }
+
+    if (!venueForm.location.trim()) {
+      return "Location is required.";
+    }
+
+    if (!Number.isInteger(capacity) || capacity <= 0) {
+      return "Capacity must be a positive whole number.";
+    }
+
+    if (Number.isNaN(price) || price < 0) {
+      return "Price must be zero or greater.";
+    }
+
+    return "";
+  }
+
+  async function handleCreateVenue(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+
+    if (!vendorAccountID) {
+      setVenueFormError("No vendor account is linked to this user.");
+      return;
+    }
+
+    const validationMessage = validateVenueForm();
+
+    if (validationMessage) {
+      setVenueFormError(validationMessage);
+      return;
+    }
+
+    setIsCreatingVenue(true);
+    setVenueFormError("");
+
+    try {
+      await venueApi.createVenue({
+        vendorAccountID,
+        name: venueForm.name.trim(),
+        location: venueForm.location.trim(),
+        capacity: Number(venueForm.capacity),
+        price: Number(venueForm.price),
+        description: venueForm.description.trim() || undefined,
+        image: venueForm.image.trim() || undefined,
+      });
+      await refreshVendorVenues(vendorAccountID);
+      setVenueForm(emptyVenueForm);
+      setIsCreateVenueOpen(false);
+      toaster.create({
+        title: "Venue created",
+        description: "Your venue has been added.",
+        type: "success",
+        duration: 3000,
+        closable: true,
+      });
+    } catch (error) {
+      console.error("Error creating venue:", error);
+      setVenueFormError("Unable to create venue right now.");
+    } finally {
+      setIsCreatingVenue(false);
+    }
+  }
+
   if (!isAuthReady || !currentUser || currentUser.role !== "vendor") {
     return null;
   }
 
   const displayName = currentUser.name || "Vendor";
-  const venueMessage = !vendorAccountID
-    ? "No vendor account is linked to this user."
-    : venueError;
+  const venueMessage = !vendorAccountID ? "No vendor account is linked to this user." : venueError;
+
+
+
+
+
+
+
+
+
 
   return (
     <Layout
@@ -151,6 +266,7 @@ export default function VendorPage() {
         </p>
       </section>
 
+      {/* Tabs */}
       <section className="space-y-8">
         <div className="flex flex-wrap gap-3">
           <Button
@@ -179,6 +295,9 @@ export default function VendorPage() {
           </Button>
         </div>
 
+
+
+        {/* Applicants Tab */}
         {activeSection === "applicants" && (
           <section className="space-y-4">
             <div>
@@ -254,14 +373,31 @@ export default function VendorPage() {
             </div>
           </section>
         )}
+        {/* Applicants Tab */}
 
+
+
+        {/* Venues Tab */}
         {activeSection === "venues" && (
           <section className="space-y-4">
-            <div>
-              <h2 className="text-xl font-semibold text-zinc-950">My Venues</h2>
-              <p className="mt-1 text-sm text-zinc-600">
-                Venues linked to your vendor account.
-              </p>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 className="text-xl font-semibold text-zinc-950">My Venues</h2>
+                <p className="mt-1 text-sm text-zinc-600">
+                  Venues linked to your vendor account.
+                </p>
+              </div>
+              <Button
+                bg="#095d44"
+                color="white"
+                disabled={!vendorAccountID}
+                onClick={() => {
+                  setVenueFormError("");
+                  setIsCreateVenueOpen(true);
+                }}
+              >
+                Add Venue
+              </Button>
             </div>
 
             {isLoadingVenues ? (
@@ -310,7 +446,108 @@ export default function VendorPage() {
             )}
           </section>
         )}
+        {/* Venues Tab */}
 
+
+
+        {/* Create Venue Form */}
+        <DialogRoot
+          open={isCreateVenueOpen}
+          onOpenChange={(details) => setIsCreateVenueOpen(details.open)}
+        >
+          <DialogContent>
+            <form onSubmit={handleCreateVenue}>
+              <DialogHeader>
+                <DialogTitle color="black">Create Venue</DialogTitle>
+              </DialogHeader>
+              <DialogCloseTrigger />
+              <DialogBody className="space-y-4">
+                {venueFormError ? (
+                  <p className="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                    {venueFormError}
+                  </p>
+                ) : null}
+
+                <Field label="Venue name" color="black">
+                  <Input
+                    value={venueForm.name}
+                    onChange={(e) => updateVenueForm("name", e.target.value)}
+                    placeholder="Garden Terrace"
+                  />
+                </Field>
+
+                <Field label="Location" color="black">
+                  <Input
+                    value={venueForm.location}
+                    onChange={(e) => updateVenueForm("location", e.target.value)}
+                    placeholder="Sydney CBD"
+                  />
+                </Field>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field label="Capacity" color="black">
+                    <Input
+                      min={1}
+                      type="number"
+                      value={venueForm.capacity}
+                      onChange={(e) => updateVenueForm("capacity", e.target.value)}
+                      placeholder="100"
+                    />
+                  </Field>
+                  <Field label="Price" color="black">
+                    <Input
+                      min={0}
+                      step="0.01"
+                      type="number"
+                      value={venueForm.price}
+                      onChange={(e) => updateVenueForm("price", e.target.value)}
+                      placeholder="2500"
+                    />
+                  </Field>
+                </div>
+
+                <Field label="Description" color="black">
+                  <textarea
+                    className="min-h-24 w-full rounded border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#095d44]"
+                    value={venueForm.description}
+                    onChange={(e) => updateVenueForm("description", e.target.value)}
+                    placeholder="Short description of the venue"
+                  />
+                </Field>
+
+                <Field label="Image URL" color="black">
+                  <Input
+                    value={venueForm.image}
+                    onChange={(e) => updateVenueForm("image", e.target.value)}
+                    placeholder="https://example.com/venue.jpg"
+                  />
+                </Field>
+              </DialogBody>
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsCreateVenueOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  bg="#095d44"
+                  color="white"
+                  loading={isCreatingVenue}
+                >
+                  Create Venue
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </DialogRoot>
+        {/* Create Venue Form */}
+
+
+
+        {/* Visual Summary */}
         {activeSection === "visualSummary" && (
           <section className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
             <h2 className="text-xl font-semibold text-zinc-950">Visual Summary</h2>
@@ -338,6 +575,10 @@ export default function VendorPage() {
             </div>
           </section>
         )}
+        {/* Visual Summary */}
+
+
+
       </section>
     </Layout>
   );
