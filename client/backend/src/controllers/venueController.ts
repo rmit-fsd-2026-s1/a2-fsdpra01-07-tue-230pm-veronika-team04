@@ -59,10 +59,7 @@ function mapVenue(venue: Venue) {
   };
 }
 
-export async function getAllVenues(
-  _req: Request,
-  res: Response,
-): Promise<void> {
+export async function getAllVenues(_req: Request, res: Response,): Promise<void> {
   try {
     // Fetch every venue, then map them for the frontend format.
     const venues = await getVenuesFromDatabase();
@@ -126,10 +123,7 @@ export async function getAllVenues(
 //   }
 // }
 
-export async function searchVenues(
-  req: Request,
-  res: Response,
-): Promise<void> {
+export async function searchVenues(req: Request,res: Response,): Promise<void> {
   try {
     const name = typeof req.query.name === "string" ? req.query.name : "";
     const location =
@@ -188,3 +182,37 @@ export async function searchVenues(
 }
 
 // TODO Get venues by vendor ID, used for vendor to manage their venues in the future.
+export async function getVenueByVendorId(req: Request, res: Response,): Promise<void> {
+  try {
+    const vendorAccountID = Number(req.params.id);
+
+    if (!Number.isInteger(vendorAccountID) || vendorAccountID <= 0) {
+      res.status(400).json({ message: "Invalid vendor account ID" });
+      return;
+    }
+
+    const venueRepository = AppDataSource.getRepository(Venue);
+    const venues = await venueRepository.find({
+      where: { vendorAccountID },
+      relations: {
+        vendorAccount: {
+          user: true,
+        },
+        recommendedSuitabilities: {
+          suitabilityTag: true,
+        },
+      },
+    });
+    const sortedVenues = sortVenues(venues);
+
+    res.status(200).json({
+      message: "Vendor venues retrieved successfully",
+      venues: sortedVenues.map(mapVenue),
+    });
+  } catch (error) {
+    console.error("Get vendor venues failed:", error);
+    res.status(500).json({
+      message: "Something went wrong. Please try again later.",
+    });
+  }
+}

@@ -5,7 +5,8 @@ import { FaBuilding, FaChartBar, FaStar, FaUsers } from "react-icons/fa";
 
 import Layout from "@/components/layout/Layout";
 import { useAuth } from "@/context/AuthContext";
-import { venueApi } from "@/services/venueApi"
+import { venueApi } from "@/services/venueApi";
+import type { Venue } from "@/types/venue";
 
 // TODO: DELETE LATER Sample hard-coded data
 const sampleApplicants = [
@@ -35,23 +36,6 @@ const sampleApplicants = [
   },
 ];
 
-const sampleVenues = [
-  {
-    id: 1,
-    name: "Garden Terrace",
-    location: "Sydney CBD",
-    capacity: 100,
-    status: "available",
-  },
-  {
-    id: 2,
-    name: "Harbour Room",
-    location: "Circular Quay",
-    capacity: 160,
-    status: "unavailable",
-  },
-];
-
 const summaryRows = [
   {
     section: "Most Chosen Applicant",
@@ -72,49 +56,77 @@ const summaryRows = [
     totalApplications: 2,
   },
 ];
-// TODO: DELETE LATER Sample hard-coded data
-
-
-// TODO:
 
 export default function VendorPage() {
-
   
   const router = useRouter();
   const { currentUser, isAuthReady } = useAuth();
-  const [activeSection, setActiveSection] = useState<
-    "applicants" | "venues" | "visualSummary"
-  >("applicants");
+  const vendorAccountID = currentUser?.accountID;
+  const currentUserRole = currentUser?.role;
+  const [activeSection, setActiveSection] = useState<"applicants" | "venues" | "visualSummary">("applicants");
+  const [venues, setVenues] = useState<Venue[]>([]);
+  const [isLoadingVenues, setIsLoadingVenues] = useState(false);
+  const [venueError, setVenueError] = useState("");
 
   useEffect(() => {
     if (!isAuthReady) {
       return;
     }
-
     if (!currentUser || currentUser.role !== "vendor") {
       router.replace("/login");
     }
   }, [currentUser, isAuthReady, router]);
+
+  useEffect(() => {
+    if (!isAuthReady || currentUserRole !== "vendor") {
+      return;
+    }
+
+    if (!vendorAccountID) {
+      return;
+    }
+
+    let isMounted = true;
+
+    const accountID = vendorAccountID;
+    async function fetchVenues() {
+      setIsLoadingVenues(true);
+      setVenueError("");
+
+      try {
+        const response = await venueApi.getVenueByVendorId(accountID);
+        if (isMounted) {
+          setVenues(response.data.venues);
+        }
+      } catch (error) {
+        console.error("Error fetching venues:", error);
+
+        if (isMounted) {
+          setVenueError("Unable to load your venues right now.");
+          setVenues([]);
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoadingVenues(false);
+        }
+      }
+    }
+
+    fetchVenues();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [currentUserRole, isAuthReady, vendorAccountID]);
 
   if (!isAuthReady || !currentUser || currentUser.role !== "vendor") {
     return null;
   }
 
   const displayName = currentUser.name || "Vendor";
-
-  useEffect(() => {
-    if (!currentUser) {
-      // TODO: If no currentUser, replace venue list with a message such as 'You have no assigned venues'.
-    }
-      const fetchVenues = async () => {
-        try {
-          const response = await venueApi.getVenueByVendorId(currentUser.id);
-          console.log("Venues:", response.data.venues);
-        } catch (error) {
-          console.error("Error fetching venues:", error);
-        }
-      };
-    }, []);
+  const venueMessage = !vendorAccountID
+    ? "No vendor account is linked to this user."
+    : venueError;
 
   return (
     <Layout
@@ -246,12 +258,21 @@ export default function VendorPage() {
             <div>
               <h2 className="text-xl font-semibold text-zinc-950">My Venues</h2>
               <p className="mt-1 text-sm text-zinc-600">
-                Static venue cards ready for future status controls.
+                Venues linked to your vendor account.
               </p>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2">
-              {sampleVenues.map((venue) => (
+            {isLoadingVenues ? (
+              <p className="text-sm text-zinc-600">Loading venues...</p>
+            ) : venueMessage ? (
+              <p className="text-sm text-red-600">{venueMessage}</p>
+            ) : venues.length === 0 ? (
+              <p className="text-sm text-zinc-600">
+                No venues are assigned to this vendor account yet.
+              </p>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2">
+              {venues.map((venue) => (
                 <article
                   key={venue.id}
                   className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm"
@@ -283,7 +304,8 @@ export default function VendorPage() {
                   </Button>
                 </article>
               ))}
-            </div>
+              </div>
+            )}
           </section>
         )}
 
