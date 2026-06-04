@@ -27,7 +27,7 @@ export default function VenueList({
   return (
     <div className="grid gap-6 lg:grid-cols-2 xl:grid-cols-3">
       {venues.map((venue) => (
-        <VenueCard key={venue.id} venue={venue} />
+        <VenueCard key={venue.id} venue={venue} useChakraTags />
       ))}
     </div>
   );

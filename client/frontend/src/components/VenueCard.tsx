@@ -1,18 +1,21 @@
 import Image from "next/image";
 import type { ReactNode } from "react";
 
+import { Tag } from "@/components/ui/tag";
 import type { Venue } from "@/types/venue";
 
 type VenueCardProps = {
   venue: Venue;
   actions?: ReactNode;
   variant?: "default" | "summary";
+  useChakraTags?: boolean;
 };
 
 export default function VenueCard({
   venue,
   actions,
   variant = "default",
+  useChakraTags = false,
 }: VenueCardProps) {
   const hasImage = venue.image.trim() !== "";
   const isSummary = variant === "summary";
@@ -20,6 +23,12 @@ export default function VenueCard({
     venue.image.startsWith("/") || venue.image.startsWith("http")
       ? venue.image
       : `/${venue.image}`;
+  const statusColor =
+    venue.status === "available"
+      ? "green"
+      : venue.status === "booked"
+        ? "orange"
+        : "red";
 
   return (
     <article className="overflow-hidden rounded-3xl border border-black/10 bg-white shadow-sm">
@@ -41,9 +50,20 @@ export default function VenueCard({
             <h3 className="text-2xl font-semibold text-zinc-950">{venue.name}</h3>
             <p className="mt-1 text-sm text-zinc-600">{venue.location}</p>
           </div>
-          <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-medium uppercase tracking-wide text-[#095d44]">
-            {venue.status}
-          </span>
+          {useChakraTags ? (
+            <Tag
+              colorPalette={statusColor}
+              size="sm"
+              textTransform="uppercase"
+              variant="subtle"
+            >
+              {venue.status}
+            </Tag>
+          ) : (
+            <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-medium uppercase tracking-wide text-[#095d44]">
+              {venue.status}
+            </span>
+          )}
         </div>
 
         {!isSummary ? (
@@ -58,7 +78,13 @@ export default function VenueCard({
             </p>
             <p>
               <span className="font-medium text-zinc-900">Best for:</span>{" "}
-              {venue.recommendedSuitability}
+              {useChakraTags ? (
+                <Tag colorPalette="teal" size="sm" variant="subtle">
+                  {venue.recommendedSuitability}
+                </Tag>
+              ) : (
+                venue.recommendedSuitability
+              )}
             </p>
           </div>
         ) : null}
