@@ -3,12 +3,14 @@
 import {
   Avatar,
   Button,
+} from "@chakra-ui/react";
+import {
   MenuContent,
   MenuItem,
   MenuRoot,
   MenuSeparator,
   MenuTrigger,
-} from "@chakra-ui/react";
+} from "@/components/ui/menu";
 import {
   DialogActionTrigger,
   DialogBody,
@@ -46,7 +48,7 @@ export default function ProfileMenu() {
   return (
     <>
     <div style={{ display: "inline-block" }}>
-      <MenuRoot positioning={{ placement: "bottom-end" }}>
+      <MenuRoot positioning={{ placement: "bottom-end", gutter: 8 }}>
         <MenuTrigger asChild>
           <Button 
             variant="ghost" 
@@ -63,7 +65,13 @@ export default function ProfileMenu() {
             </Avatar.Root>
           </Button>
         </MenuTrigger>
-        <MenuContent bg="white" borderColor="gray.200" boxShadow="md" zIndex={1400} position="absolute" marginTop="5px">
+        <MenuContent
+          bg="white"
+          borderColor="gray.200"
+          boxShadow="md"
+          minW="180px"
+          zIndex={1400}
+        >
           <MenuItem value="profile" onClick={() => router.push("/profile")}>
             My Profile
           </MenuItem>
