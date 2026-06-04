@@ -113,14 +113,7 @@ export default function VendorPage() {
       router.replace("/login");
     }
   }, [currentUser, isAuthReady, router]);
-
-  // Default fallback
-  if (!isAuthReady || !currentUser || currentUser.role !== "vendor") {
-    return null;
-  }
-  const displayName = currentUser.name || "Vendor";
-  const venueMessage = !vendorAccountID ? "No vendor account is linked to this user." : venueError;
-
+  
   // Will validate vendor role, then fetch the account's associated vendors
   useEffect(() => {
     if (!isAuthReady || currentUserRole !== "vendor") {
@@ -164,7 +157,13 @@ export default function VendorPage() {
       isMounted = false;
     };
   }, [currentUserRole, isAuthReady, vendorAccountID]);
-
+  
+  // Default fallback
+  if (!isAuthReady || !currentUser || currentUser.role !== "vendor") {
+    return null;
+  }
+  const displayName = currentUser.name || "Vendor";
+  const venueMessage = !vendorAccountID ? "No vendor account is linked to this user." : venueError;
 
   // Triggers after submittingor updating a new venue
   async function refreshVendorVenues(accountID: number) {
@@ -309,6 +308,8 @@ export default function VendorPage() {
   try {
     // TODO: wire up API call
     console.log("Delete venue:", venueToDelete.id);
+    await venueApi.deleteVenue(venueToDelete.id);
+
     await refreshVendorVenues(vendorAccountID);
     toaster.create({
       title: "Venue deleted",

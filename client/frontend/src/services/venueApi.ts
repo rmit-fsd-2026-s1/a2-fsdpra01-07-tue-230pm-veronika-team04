@@ -49,4 +49,5 @@ export const venueApi = {
     apiClient.post<VenueResponse>("/venues", payload),
   updateVenue: (venueId: string | number, payload: Partial<CreateVenuePayload>) =>
     apiClient.put<VenueResponse>(`/venues/${venueId}`, payload),
+  deleteVenue: (venueId: string | number) => apiClient.delete<{ message: string }>(`/venues/${venueId}`),
 };

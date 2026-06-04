@@ -226,6 +226,32 @@ export async function updateVenue(req: Request, res: Response): Promise<void> {
   }
 }
 
+export async function deleteVenue(req: Request, res: Response): Promise<void> {
+  try {
+    const venueID = Number(req.params.venueID);
+
+    if (!Number.isInteger(venueID) || venueID <= 0) {
+      res.status(400).json({ message: "Invalid venue ID" });
+      return;
+    }
+
+    const venueRepository = AppDataSource.getRepository(Venue);
+
+    const existingVenue = await venueRepository.findOneBy({ venueID });
+    if (!existingVenue) {
+      res.status(404).json({ message: "Venue not found" });
+      return;
+    }
+
+    await venueRepository.remove(existingVenue);
+
+    res.status(200).json({ message: "Venue deleted successfully" });
+  } catch (error) {
+    console.error("Delete venue failed:", error);
+    res.status(500).json({ message: "Something went wrong. Please try again later." });
+  }
+}
+
 // Maybe not need this function, as the frontend doesn't have a venue details page. 
 // The frontend only uses the searchVenues function which returns all the details needed for the homepage.
 // export async function getVenueByID(
