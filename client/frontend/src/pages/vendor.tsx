@@ -68,6 +68,7 @@ export default function VendorPage() {
   const [isLoadingVenues, setIsLoadingVenues] = useState(false);
   const [venueError, setVenueError] = useState("");
 
+  // Will validate user login and if they're a vendor role
   useEffect(() => {
     if (!isAuthReady) {
       return;
@@ -77,6 +78,7 @@ export default function VendorPage() {
     }
   }, [currentUser, isAuthReady, router]);
 
+  // Will validate vendor role, then fetch the account's associated vendors
   useEffect(() => {
     if (!isAuthReady || currentUserRole !== "vendor") {
       return;
@@ -152,7 +154,7 @@ export default function VendorPage() {
       <section className="space-y-8">
         <div className="flex flex-wrap gap-3">
           <Button
-            colorPalette={activeSection === "applicants" ? "green" : "gray"}
+            bg={activeSection === "applicants" ? "#095d44" : "white"}
             variant={activeSection === "applicants" ? "solid" : "outline"}
             onClick={() => setActiveSection("applicants")}
           >
@@ -160,7 +162,7 @@ export default function VendorPage() {
             Applicants
           </Button>
           <Button
-            colorPalette={activeSection === "venues" ? "green" : "gray"}
+            bg={activeSection === "venues" ? "#095d44" : "white"}
             variant={activeSection === "venues" ? "solid" : "outline"}
             onClick={() => setActiveSection("venues")}
           >
@@ -168,7 +170,7 @@ export default function VendorPage() {
             My Venues
           </Button>
           <Button
-            colorPalette={activeSection === "visualSummary" ? "green" : "gray"}
+            bg={activeSection === "visualSummary" ? "#095d44" : "white"}
             variant={activeSection === "visualSummary" ? "solid" : "outline"}
             onClick={() => setActiveSection("visualSummary")}
           >
@@ -187,8 +189,8 @@ export default function VendorPage() {
             </div>
 
             <div className="flex flex-wrap gap-3">
-              <Button size="sm" colorPalette="green">Sort: High to Low</Button>
-              <Button size="sm" colorPalette="gray" variant="outline">
+              <Button size="sm" bg="#095d44">Sort: High to Low</Button>
+              <Button size="sm" bg="white" variant="outline">
                 Sort: Low to High
               </Button>
             </div>
