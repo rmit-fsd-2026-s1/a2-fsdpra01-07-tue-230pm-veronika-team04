@@ -1,9 +1,13 @@
 import apiClient from "./api";
-import type { BookingApplication } from "@/types/booking";
+import type {
+  BookingApplication,
+  UpdateApplicationStatusPayload,
+} from "@/types/booking";
 
 type ApplicationResponse = {
   message: string;
   booking: BookingApplication;
+  hirerReputation: number;
 };
 
 export const applicationApi = {
@@ -11,6 +15,10 @@ export const applicationApi = {
         apiClient.get<{ message: string; bookings: BookingApplication[] }>(
             `/applications/vendor/${vendorAccountID}`,
         ),
-    updateBookingApplication: (bookingID: string | number, status: "approved" | "rejected", vendorComments?: string) =>
-        apiClient.put<ApplicationResponse>(`/applications/${bookingID}/status`, { status, vendorComments }),
+    updateBookingApplication: (
+        bookingID: string | number,
+        payload: UpdateApplicationStatusPayload,
+    ) =>
+        // The backend uses this status route for the whole vendor review.
+        apiClient.put<ApplicationResponse>(`/applications/${bookingID}/status`, payload),
 };
