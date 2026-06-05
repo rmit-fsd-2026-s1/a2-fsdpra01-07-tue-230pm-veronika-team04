@@ -8,6 +8,7 @@ import {DialogBody, DialogCloseTrigger, DialogContent, DialogFooter,
   DialogHeader, DialogRoot, DialogTitle,
 } from "@/components/ui/dialog";
 import { Field } from "@/components/ui/field";
+import { Rating } from "@/components/ui/rating";
 import { toaster } from "@/components/ui/toaster";
 import Layout from "@/components/layout/Layout";
 import { useAuth } from "@/context/AuthContext";
@@ -81,15 +82,16 @@ export default function VendorPage() {
 
   // Remove the sampleApplicants and summaryRows hard-coded consts entirely
 
-  // useState for applications
+  // Applications shown in the vendor Applicants tab.
   const [applications, setApplications] = useState<BookingApplication[]>([]);
   const [isLoadingApplications, setIsLoadingApplications] = useState(false);
   const [applicationError, setApplicationError] = useState("");
 
-  // useState for review dialog
+  // Review dialog edits status, rating, and comment together.
   const [reviewingApplication, setReviewingApplication] = useState<BookingApplication | null>(null);
-  const [vendorComments, setVendorComments] = useState("");
-  const [addComment, setAddComment] = useState(false);
+  const [reviewStatus, setReviewStatus] = useState<"Accepted" | "Rejected">("Accepted");
+  const [ratingValue, setRatingValue] = useState(0);
+  const [vendorComment, setVendorComment] = useState("");
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
   const [reviewError, setReviewError] = useState("");
 
@@ -178,7 +180,7 @@ export default function VendorPage() {
   const displayName = currentUser.name || "Vendor";
   const venueMessage = !vendorAccountID ? "No vendor account is linked to this user." : venueError;
 
-  // Triggers after submittingor updating a new venue
+  // Refresh the vendor's venue list after create, update, or delete.
   async function refreshVendorVenues(accountID: number) {
     const response = await venueApi.getVenueByVendorId(accountID);
     setVenues(response.data.venues);
@@ -347,39 +349,54 @@ export default function VendorPage() {
   }
 
   function openReviewApplication(application: BookingApplication) {
+    // Prefill the dialog so vendors can update an existing review later.
     setReviewingApplication(application);
-    setVendorComments(application.vendorComments ?? "");
-    setAddComment(!!application.vendorComments);
+    setReviewStatus(application.status === "Rejected" ? "Rejected" : "Accepted");
+    setRatingValue(application.rating ?? 0);
+    setVendorComment(application.vendorComment ?? "");
     setReviewError("");
   }
 
-  async function handleReviewSubmit(decision: "approved" | "rejected") {
+  async function handleReviewSubmit() {
     if (!reviewingApplication || !vendorAccountID) return;
-    const accountID = vendorAccountID;
+
+    if (ratingValue < 0 || ratingValue > 5) {
+      setReviewError("Rating must be between 0 and 5.");
+      return;
+    }
 
     setIsSubmittingReview(true);
     setReviewError("");
 
     try {
-      await applicationApi.updateBookingApplication(
+      // One request updates status, rating, and comment on the booking.
+      const response = await applicationApi.updateBookingApplication(
         reviewingApplication.bookingID,
-        decision,
-        addComment ? vendorComments.trim() || undefined : undefined,
+        {
+          vendorAccountID,
+          status: reviewStatus,
+          rating: ratingValue,
+          vendorComment: vendorComment.trim(),
+        },
       );
-      // Refresh applications list
-      const response = await applicationApi.getAllBookingApplications(vendorAccountID);
-      setApplications(response.data.bookings);
+      setApplications((currentApplications) =>
+        currentApplications.map((application) =>
+          application.bookingID === reviewingApplication.bookingID
+            ? response.data.booking
+            : application,
+        ),
+      );
       setReviewingApplication(null);
       toaster.create({
-        title: decision === "approved" ? "Application accepted" : "Application rejected",
-        description: `${reviewingApplication.eventName} has been ${decision === "approved" ? "accepted" : "rejected"}.`,
+        title: "Review updated",
+        description: `${reviewingApplication.eventName} review has been saved.`,
         type: "success",
         duration: 3000,
         closable: true,
       });
     } catch (error) {
       console.error("Error submitting review:", error);
-      setReviewError("Unable to submit review right now.");
+      setReviewError("Unable to save review right now.");
     } finally {
       setIsSubmittingReview(false);
     }
@@ -507,24 +524,49 @@ export default function VendorPage() {
                       </p>
                     </div>
 
-                    {application.status === "Pending" && (
-                      <Button
-                        mt={4}
-                        size="sm"
-                        bg="#095d44"
-                        color="white"
-                        onClick={() => openReviewApplication(application)}
-                      >
-                        Review
-                      </Button>
-                    )}
-
-                    {application.vendorComments && (
+                    {application.vendorComment && (
                       <p className="mt-3 text-sm text-zinc-600">
-                        <span className="font-medium text-zinc-950">Your comment: </span>
-                        {application.vendorComments}
+                        <span className="font-medium text-zinc-950">Vendor comment: </span>
+                        {application.vendorComment}
                       </p>
                     )}
+
+                    <div className="mt-4 flex flex-wrap items-end justify-between gap-3">
+                      <Button
+                        size="sm"
+                        bg={application.status === "Pending" ? "#095d44" : "white"}
+                        borderColor={application.status === "Pending" ? "#095d44" : "#a1a1aa"}
+                        borderWidth={application.status === "Pending" ? "1px" : "1.5px"}
+                        color={application.status === "Pending" ? "white" : "black"}
+                        variant={application.status === "Pending" ? "solid" : "outline"}
+                        _hover={{
+                          bg: application.status === "Pending" ? "#074b37" : "#f4f4f5",
+                          borderColor: application.status === "Pending" ? "#074b37" : "#3f3f46",
+                        }}
+                        onClick={() => openReviewApplication(application)}
+                      >
+                        {application.status === "Pending" ? "Review" : "Update Review"}
+                      </Button>
+
+                      <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3">
+                        <HStack gap={2} align="center">
+                          <span className="text-sm font-medium text-zinc-950">
+                            Rating
+                          </span>
+                          <Rating
+                            readOnly
+                            size="sm"
+                            value={application.rating ?? 0}
+                            icon={<FaStar />}
+                          />
+                          <span className="text-sm text-zinc-600">
+                            {application.rating == null
+                              ? "Not rated yet"
+                              : `${application.rating} / 5`}
+                          </span>
+                        </HStack>
+                      </div>
+                    </div>
                   </article>
                 ))}
               </div>
@@ -569,27 +611,52 @@ export default function VendorPage() {
                 </div>
               </div>
 
-              {/* Optional comment */}
               <div className="space-y-2">
-                <label className="flex items-center gap-2 text-sm text-zinc-700 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={addComment}
-                    onChange={(e) => {
-                      setAddComment(e.target.checked);
-                      if (!e.target.checked) setVendorComments("");
-                    }}
-                  />
-                  Add a comment to this application
+                <p className="text-sm font-medium text-zinc-950">Decision status</p>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    bg={reviewStatus === "Accepted" ? "#095d44" : "white"}
+                    color={reviewStatus === "Accepted" ? "white" : "black"}
+                    variant={reviewStatus === "Accepted" ? "solid" : "outline"}
+                    onClick={() => setReviewStatus("Accepted")}
+                  >
+                    Accepted
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    colorPalette="red"
+                    variant={reviewStatus === "Rejected" ? "solid" : "outline"}
+                    onClick={() => setReviewStatus("Rejected")}
+                  >
+                    Rejected
+                  </Button>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-zinc-950">Rating</p>
+                <Rating
+                  colorPalette="yellow"
+                  value={ratingValue}
+                  icon={<FaStar />}
+                  onValueChange={(details) => setRatingValue(details.value)}
+                />
+                <p className="text-sm text-zinc-600">{ratingValue} / 5</p>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-zinc-950">
+                  Vendor comment
                 </label>
-                {addComment && (
-                  <textarea
-                    className="min-h-24 w-full rounded border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-700 outline-none focus:border-[#095d44]"
-                    value={vendorComments}
-                    onChange={(e) => setVendorComments(e.target.value)}
-                    placeholder="Optional comments for the hirer..."
-                  />
-                )}
+                <textarea
+                  className="min-h-24 w-full rounded border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-700 outline-none focus:border-[#095d44]"
+                  value={vendorComment}
+                  onChange={(e) => setVendorComment(e.target.value)}
+                  placeholder="Optional comments for the hirer..."
+                />
               </div>
             </DialogBody>
             <DialogFooter className="gap-2">
@@ -600,20 +667,12 @@ export default function VendorPage() {
                 Cancel
               </Button>
               <Button
-                colorPalette="red"
-                variant="subtle"
-                loading={isSubmittingReview}
-                onClick={() => handleReviewSubmit("rejected")}
-              >
-                Reject
-              </Button>
-              <Button
                 bg="#095d44"
                 color="white"
                 loading={isSubmittingReview}
-                onClick={() => handleReviewSubmit("approved")}
+                onClick={handleReviewSubmit}
               >
-                Accept
+                Save Review
               </Button>
             </DialogFooter>
           </DialogContent>
