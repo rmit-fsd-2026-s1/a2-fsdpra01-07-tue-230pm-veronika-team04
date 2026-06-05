@@ -1,5 +1,7 @@
-import { Badge } from "@chakra-ui/react";
+import { Badge, HStack } from "@chakra-ui/react";
+import { FaStar } from "react-icons/fa";
 
+import { Rating } from "@/components/ui/rating";
 import type { BookingApplication, BookingApplicationStatus } from "@/types/booking";
 
 type BookingHistoryCardProps = {
@@ -68,6 +70,25 @@ export default function BookingHistoryCard({ booking }: BookingHistoryCardProps)
           <p>
             <span className="font-medium text-zinc-900">Submitted:</span>{" "}
             {formatSubmittedDate(booking.createdAt)}
+          </p>
+          {/* Hirers can view the vendor review, but cannot edit it here. */}
+          <div>
+            <HStack gap={2} align="center">
+              <span className="font-medium text-zinc-900">Rating:</span>
+              <Rating
+                readOnly
+                size="sm"
+                value={booking.rating ?? 0}
+                icon={<FaStar />}
+              />
+              <span>
+                {booking.rating == null ? "Not rated yet" : `${booking.rating} / 5`}
+              </span>
+            </HStack>
+          </div>
+          <p>
+            <span className="font-medium text-zinc-900">Vendor comment:</span>{" "}
+            {booking.vendorComment?.trim() || "No comment yet"}
           </p>
         </div>
       </div>

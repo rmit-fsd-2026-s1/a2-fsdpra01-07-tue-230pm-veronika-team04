@@ -22,7 +22,7 @@ export class HirerAccount {
   @Column({ type: "bit", default: true })
   isActive: boolean;
 
-  @Column({ type: "int", default: 0 })
+  @Column({ type: "float", default: 0 })
   reputation: number;
 
   @Column({ type: "int", default: 0 })
