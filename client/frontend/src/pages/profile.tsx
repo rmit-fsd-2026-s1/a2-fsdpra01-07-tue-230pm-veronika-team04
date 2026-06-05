@@ -345,7 +345,7 @@ export default function UserProfile() {
           >
             <DialogContent>
               <form onSubmit={changeName}>
-                <DialogHeader>
+                <DialogHeader color="black">
                   <DialogTitle>Change Name</DialogTitle>
                 </DialogHeader>
                 <DialogCloseTrigger />
@@ -356,14 +356,15 @@ export default function UserProfile() {
                     placeholder='Your Name'
                     value={nameInput}
                     onChange={(e) => setNameInput(e.target.value)}
+                    color="black"
                   />
                 </Field>
               </DialogBody>
               <DialogFooter>
-                <Button type="submit" colorPalette='blue' mr={3}>
+                <Button type="submit" colorPalette='green' mr={3}>
                   Save
                 </Button>
-                <Button type="button" onClick={onNameClose}>Cancel</Button>
+                <Button type="button" colorPalette='grey' onClick={onNameClose}>Cancel</Button>
               </DialogFooter>
               </form>
             </DialogContent>
@@ -377,7 +378,7 @@ export default function UserProfile() {
           >
             <DialogContent>
               <form onSubmit={changePhone}>
-                <DialogHeader>
+                <DialogHeader color="black">
                   <DialogTitle>Add/Change Phone Number</DialogTitle>
                 </DialogHeader>
                 <DialogCloseTrigger />
@@ -388,14 +389,15 @@ export default function UserProfile() {
                     placeholder='Enter Phone Number'
                     value={phoneInput}
                     onChange={(e) => setPhoneInput(e.target.value)}
+                    color="black"
                   />
                 </Field>
               </DialogBody>
               <DialogFooter>
-                <Button type="submit" colorPalette='blue' mr={3}>
+                <Button type="submit" colorPalette='green' mr={3}>
                   Save
                 </Button>
-                <Button type="button" onClick={onPhoneClose}>Cancel</Button>
+                <Button type="button" colorPalette='grey' onClick={onPhoneClose}>Cancel</Button>
               </DialogFooter>
               </form>
             </DialogContent>
