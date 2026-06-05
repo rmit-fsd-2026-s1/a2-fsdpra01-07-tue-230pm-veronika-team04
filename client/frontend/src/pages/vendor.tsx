@@ -12,6 +12,7 @@ import { Rating } from "@/components/ui/rating";
 import { toaster } from "@/components/ui/toaster";
 import Layout from "@/components/layout/Layout";
 import { useAuth } from "@/context/AuthContext";
+import { bookingApi } from "@/services/bookingApi";
 import { venueApi } from "@/services/venueApi";
 import type { Venue } from "@/types/venue";
 
@@ -48,6 +49,18 @@ const emptyVenueForm = {
   description: "",
   image: "",
 };
+
+function getHirerDisplayName(application: BookingApplication) {
+  return application.hirerName?.trim() || application.hirerEmail || "Unknown hirer";
+}
+
+function formatReputation(reputation: number | null | undefined) {
+  if (typeof reputation === "number" && reputation > 0) {
+    return `${reputation} / 5`;
+  }
+
+  return "Not rated yet";
+}
 
 export default function VendorPage() {
   
@@ -94,6 +107,9 @@ export default function VendorPage() {
   const [vendorComment, setVendorComment] = useState("");
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
   const [reviewError, setReviewError] = useState("");
+  const [reviewHistory, setReviewHistory] = useState<BookingApplication[]>([]);
+  const [isReviewHistoryLoading, setIsReviewHistoryLoading] = useState(false);
+  const [reviewHistoryError, setReviewHistoryError] = useState("");
 
   // Will validate user login and if they're a vendor role
   useEffect(() => {
@@ -355,6 +371,31 @@ export default function VendorPage() {
     setRatingValue(application.rating ?? 0);
     setVendorComment(application.vendorComment ?? "");
     setReviewError("");
+    void loadReviewHistory(application.hirerAccountID ?? application.hireAccountID);
+  }
+
+  function closeReviewDialog() {
+    setReviewingApplication(null);
+    setReviewError("");
+    setReviewHistory([]);
+    setReviewHistoryError("");
+    setIsReviewHistoryLoading(false);
+  }
+
+  async function loadReviewHistory(hireAccountID: number) {
+    setReviewHistory([]);
+    setReviewHistoryError("");
+    setIsReviewHistoryLoading(true);
+
+    try {
+      const response = await bookingApi.getHirerBookingHistory(hireAccountID);
+      setReviewHistory(response.data.bookings);
+    } catch (error) {
+      console.error("Error loading hirer history:", error);
+      setReviewHistoryError("Unable to load historical hire list.");
+    } finally {
+      setIsReviewHistoryLoading(false);
+    }
   }
 
   async function handleReviewSubmit() {
@@ -386,7 +427,7 @@ export default function VendorPage() {
             : application,
         ),
       );
-      setReviewingApplication(null);
+      closeReviewDialog();
       toaster.create({
         title: "Review updated",
         description: `${reviewingApplication.eventName} review has been saved.`,
@@ -401,13 +442,6 @@ export default function VendorPage() {
       setIsSubmittingReview(false);
     }
   }
-
-
-
-
-
-
-
 
   return (
     <Layout
@@ -578,7 +612,7 @@ export default function VendorPage() {
         {/* Review Application Dialog */}
         <DialogRoot
           open={reviewingApplication !== null}
-          onOpenChange={(details) => { if (!details.open) setReviewingApplication(null); }}
+          onOpenChange={(details) => { if (!details.open) closeReviewDialog(); }}
         >
           <DialogContent>
             <DialogHeader>
@@ -599,6 +633,35 @@ export default function VendorPage() {
                 <p className="text-sm text-zinc-600">{reviewingApplication?.venueLocation}</p>
               </div>
 
+              {/* Hirer details */}
+              {reviewingApplication && (
+                <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 space-y-2">
+                  <h3 className="text-sm font-semibold text-zinc-950">Hirer Summary</h3>
+                  <div className="grid grid-cols-2 gap-2 text-sm text-zinc-700">
+                    <p>
+                      <span className="font-medium text-zinc-950">Hirer</span>
+                      <br />
+                      {getHirerDisplayName(reviewingApplication)}
+                    </p>
+                    <p>
+                      <span className="font-medium text-zinc-950">Email</span>
+                      <br />
+                      {reviewingApplication.hirerEmail || "Not provided"}
+                    </p>
+                    <p>
+                      <span className="font-medium text-zinc-950">Reputation</span>
+                      <br />
+                      {formatReputation(reviewingApplication.hirerReputation)}
+                    </p>
+                    <p>
+                      <span className="font-medium text-zinc-950">Compliance score</span>
+                      <br />
+                      {reviewingApplication.complianceScore ?? 0}
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* Booking details */}
               <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 space-y-2">
                 <h3 className="text-sm font-semibold text-zinc-950">Booking Details</h3>
@@ -609,6 +672,58 @@ export default function VendorPage() {
                   <p><span className="font-medium text-zinc-950">Time</span><br />{reviewingApplication?.eventTime}</p>
                   <p><span className="font-medium text-zinc-950">Duration</span><br />{reviewingApplication?.duration}h</p>
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <h3 className="text-sm font-semibold text-zinc-950">
+                  Historical Hire List
+                </h3>
+
+                {isReviewHistoryLoading ? (
+                  <p className="text-sm text-zinc-600">
+                    Loading historical hire list...
+                  </p>
+                ) : reviewHistoryError ? (
+                  <p className="text-sm text-red-600">
+                    Unable to load historical hire list.
+                  </p>
+                ) : reviewHistory.length === 0 ? (
+                  <p className="text-sm text-zinc-600">
+                    No previous hire history found.
+                  </p>
+                ) : (
+                  <div className="overflow-x-auto rounded border border-zinc-200">
+                    <table className="min-w-full text-left text-sm text-zinc-700">
+                      <thead className="border-b border-zinc-200 bg-zinc-50 text-zinc-950">
+                        <tr>
+                          <th className="px-3 py-2 font-semibold">Venue name</th>
+                          <th className="px-3 py-2 font-semibold">Location</th>
+                          <th className="px-3 py-2 font-semibold">Event name</th>
+                          <th className="px-3 py-2 font-semibold">Date of hire</th>
+                          <th className="px-3 py-2 font-semibold">Star rating</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {reviewHistory.map((booking) => (
+                          <tr
+                            key={booking.bookingID}
+                            className="border-b border-zinc-100 last:border-b-0"
+                          >
+                            <td className="px-3 py-2">{booking.venueName}</td>
+                            <td className="px-3 py-2">{booking.venueLocation}</td>
+                            <td className="px-3 py-2">{booking.eventName}</td>
+                            <td className="px-3 py-2">{booking.eventDate}</td>
+                            <td className="px-3 py-2">
+                              {booking.rating == null
+                                ? "Not rated yet"
+                                : `${booking.rating}/5`}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -662,7 +777,7 @@ export default function VendorPage() {
             <DialogFooter className="gap-2">
               <Button
                 variant="outline"
-                onClick={() => setReviewingApplication(null)}
+                onClick={closeReviewDialog}
               >
                 Cancel
               </Button>

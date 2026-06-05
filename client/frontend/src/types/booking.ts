@@ -35,7 +35,7 @@ export type BookingApplication = {
   hirerAccountID?: number;
   hirerName?: string;
   hirerEmail?: string;
-  hirerReputation?: number;
-  complianceScore?: number;
+  hirerReputation?: number | null;
+  complianceScore?: number | null;
   createdAt: string;
 };
