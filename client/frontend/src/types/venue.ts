@@ -1,4 +1,4 @@
-export type VenueStatus = "available" | "booked" | "unavailable";
+export type VenueStatus = "available" | "unavailable";
 
 export type Venue = {
   id: number;
