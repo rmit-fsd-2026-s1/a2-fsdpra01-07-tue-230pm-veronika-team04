@@ -11,7 +11,8 @@ import {
 import Layout from "@/components/layout/Layout";
 import React from "react";
 import router from "next/router";
-import { useAuth, type CurrentUser } from "@/context/AuthContext";
+import axios from "axios";
+import { useAuth } from "@/context/AuthContext";
 import { useState, useEffect } from "react";
 import { getStoredDocuments, saveDocuments } from "@/utils/documentStorage";
 import { profileApi } from "@/services/profileApi";
@@ -35,14 +36,14 @@ function InfoRow({ icon, label, value, highlight, isPassword, onClick }: InfoRow
       onClick={onClick}
       className="flex items-start gap-4 px-6 py-4 border-b border-gray-100 last:border-b-0 hover:bg-gray-50 transition-colors cursor-pointer group">
       <Icon as={icon} className="mt-1 text-gray-500 shrink-0 w-5 h-5" />
-      <div className="flex-1 min-w-0">
-        <p className={`text-sm font-semibold ${highlight ? "text-blue-600" : "text-gray-800"}`}>
+      <div className="flex-1 min-w-0 flex flex-col">
+        <span className={`text-sm font-semibold ${highlight ? "text-blue-600" : "text-gray-800"}`}>
           {label}
-        </p>
+        </span>
         {values.map((v, i) => (
-          <p key={i} className="text-sm text-gray-500 mt-0.5">
+          <span key={i} className="text-sm text-gray-500 mt-0.5">
             {isPassword ? "••••••••" : (v || "Not set")}
-          </p>
+          </span>
         ))}
       </div>
       <Icon as={FaChevronRight} className="w-4 h-4 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity mt-1" />
@@ -109,6 +110,25 @@ export default function UserProfile() {
   const [documents, setDocuments] = useState<ComplianceDocuments>(defaultDocs);
   const [credibility, calcCredibility] = useState<number>(0.0);
 
+  // Form inputs
+  const [firstNameInput, setFirstNameInput] = useState("");
+  const [lastNameInput, setLastNameInput] = useState("");
+  const [phoneInput, setPhoneInput] = useState("");
+  const [currentPasswordInput, setCurrentPasswordInput] = useState("");
+  const [newPasswordInput, setNewPasswordInput] = useState("");
+  const [emailInput, setEmailInput] = useState("");
+  
+  const [nameError, setNameError] = useState("");
+  const [phoneError, setPhoneError] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [emailError, setEmailError] = useState("");
+
+  // Dialog open states
+  const [isNameOpen, setIsNameOpen] = useState(false);
+  const [isPhoneOpen, setIsPhoneOpen] = useState(false);
+  const [isPasswordOpen, setIsPasswordOpen] = useState(false);
+  const [isEmailOpen, setIsEmailOpen] = useState(false);
+
   useEffect(() => {
     // Redirect only after auth has finished restoring from localStorage.
     if (!isAuthReady) {
@@ -143,63 +163,123 @@ export default function UserProfile() {
     calcCredibility(score);
   }, [documents]);
 
-  const [nameInput, setNameInput] = useState("");
-  const [phoneInput, setPhoneInput] = useState("");
 
-  async function changeName(e: React.FormEvent<HTMLElement>) {
+
+
+  async function handleUpdateName(e: React.FormEvent<HTMLElement>) {
     e.preventDefault();
-    if (!currentUser) return;
+    if (!currentUser?.userID) return;
 
-    const updatedUser = { ...currentUser, name: nameInput } as CurrentUser;
-    if (nameInput === "") {
-        toaster.create({
-            title: "No name entered!",
-            description: "Please enter a new name.",
-            type: "error",
-            duration: 3000,
-            closable: true,
-        });
-      } else {
-      try {
-        overrideCurrentUser(updatedUser);    // updates React context/state and persists to localStorage
-        setDisplayName(nameInput);           // updates local display state
-        toaster.create({
-            title: "Name changed successfully!",
-            type: "success",
-            duration: 3000,
-            closable: true,
-        });
-      } catch (err: unknown) {
-        if (err instanceof Error) {
-          console.log(err.message);
-        }
-      } finally {
-        onNameClose();
-      }
+    const firstName = firstNameInput.trim();
+    const lastName = lastNameInput.trim();
+
+    setNameError("");
+
+    if (!firstName || !lastName) {
+      setNameError("Both first and last name are required.");
+      return;
+    }
+
+    try {
+      await profileApi.updateProfile(currentUser.userID, { firstName, lastName, phone: currentUser.phone });
+      overrideCurrentUser({
+        ...currentUser,
+        firstName,
+        lastName,
+        name: `${firstName} ${lastName}`.trim(),
+      });
+      setDisplayName(`${firstName} ${lastName}`.trim());
+      setIsNameOpen(false);
+      toaster.create({ title: "Name updated successfully!", type: "success", duration: 3000, closable: true });
+    } catch {
+      setNameError("Failed to update name. Please try again.");
     }
   }
 
-  async function changePhone(e: React.FormEvent<HTMLElement>) {
-    e.preventDefault();
-    if (!currentUser) return;
+    function splitName(name: string) {
+      const parts = name.trim().split(/\s+/).filter(Boolean);
+      const [firstName = "", ...lastNameParts] = parts;
+      return { firstName, lastName: lastNameParts.join(" ") };
+  }
 
-    const updatedUser = { ...currentUser, phone: phoneInput } as CurrentUser;
-      try {
-        overrideCurrentUser(updatedUser);    // updates React context/state and persists to localStorage
-        toaster.create({
-            title: "Phone Number Successfully Updated!",
-            type: "success",
-            duration: 3000,
-            closable: true,
-        });
-      } catch (err: unknown) {
-        if (err instanceof Error) {
-          console.log(err.message);
-        }
-      } finally {
-        onPhoneClose();
-      }
-    
+  async function handleUpdatePhone(e: React.FormEvent<HTMLElement>) {
+    e.preventDefault();
+    if (!currentUser?.userID) return;
+
+    setPhoneError("");
+
+    const firstName = currentUser.firstName || splitName(currentUser.name).firstName;
+    const lastName = currentUser.lastName || splitName(currentUser.name).lastName;
+
+    if (!phoneInput.trim()) {
+      setPhoneError("Phone number is required.");
+      return;
+    }
+
+    try {
+      await profileApi.updateProfile(currentUser.userID, {
+        firstName,
+        lastName,
+        phone: phoneInput.trim(),
+      });
+      overrideCurrentUser({ ...currentUser, phone: phoneInput.trim() });
+      setIsPhoneOpen(false);
+      toaster.create({ title: "Phone number updated!", type: "success", duration: 3000, closable: true });
+    } catch {
+      setPhoneError("Failed to update phone. Please try again.");
+    }
+  }
+
+  async function handleUpdateEmail(e: React.FormEvent<HTMLElement>) {
+    e.preventDefault();
+    if (!currentUser?.userID) return;
+
+    setEmailError("");
+
+    if (!emailInput.trim()) {
+      setEmailError("Email is required.");
+      return;
+    }
+
+    try {
+      await profileApi.updateEmail(currentUser.userID, emailInput.trim());
+      overrideCurrentUser({ ...currentUser, email: emailInput.trim() });
+      toaster.create({ title: "Email updated successfully!", type: "success", duration: 3000, closable: true });
+      setIsEmailOpen(false);
+    } catch (err) {
+      const message = axios.isAxiosError(err)
+        ? (err.response?.data as { message?: string })?.message ?? "Failed to update email."
+        : "Failed to update email.";
+      setEmailError(message);
+    }
+  }
+
+  async function handleUpdatePassword(e: React.FormEvent<HTMLElement>) {
+    e.preventDefault();
+    if (!currentUser?.userID) return;
+
+    setPasswordError("");
+
+    if (!currentPasswordInput || !newPasswordInput) {
+      setPasswordError("Both fields are required.");
+      return;
+    }
+
+    try {
+      await profileApi.updatePassword(currentUser.userID, {
+        currentPassword: currentPasswordInput,
+        newPassword: newPasswordInput,
+      });
+      toaster.create({ title: "Password updated successfully!", type: "success", duration: 3000, closable: true });
+      setCurrentPasswordInput("");
+      setNewPasswordInput("");
+      setIsPasswordOpen(false);
+    } catch (err) {
+      const message = axios.isAxiosError(err)
+        ? (err.response?.data as { message?: string })?.message ?? "Failed to update password."
+        : "Failed to update password.";
+      setPasswordError(message);
+    }
   }
   
   //
@@ -273,18 +353,7 @@ export default function UserProfile() {
         { label: "Join", href: "/sign_up" },
       ];
 
-  // Module element
-  // Name change
-  const [isNameOpen, setIsNameOpen] = useState(false);
-  const onNameOpen = () => setIsNameOpen(true);
-  const onNameClose = () => setIsNameOpen(false);
-  // Phone num change
-  const [isPhoneOpen, setIsPhoneOpen] = useState(false);
-  const onPhoneOpen = () => setIsPhoneOpen(true);
-  const onPhoneClose = () => setIsPhoneOpen(false);
-  const nameInitialRef = React.useRef<HTMLInputElement>(null)
-  const phoneInitialRef = React.useRef<HTMLInputElement>(null)
-
+      
   return (
     <Layout
       headerTitle="Venue Vendors"
@@ -316,95 +385,231 @@ export default function UserProfile() {
           {/* Info rows */}
           <InfoRow
             icon={FaInfo}
-            label="Name"
-            value={displayName}
-            onClick={onNameOpen}
+            label="First Name"
+            value={currentUser?.firstName || splitName(displayName).firstName}
+            onClick={() => {
+              setFirstNameInput(currentUser?.firstName || splitName(displayName).firstName);
+              setLastNameInput(currentUser?.lastName || splitName(displayName).lastName);
+              setNameError("");
+              setIsNameOpen(true);
+            }}
+          />
+          <InfoRow
+            icon={FaInfo}
+            label="Last Name"
+            value={currentUser?.lastName || splitName(displayName).lastName}
+            onClick={() => {
+              setFirstNameInput(currentUser?.firstName || splitName(displayName).firstName);
+              setLastNameInput(currentUser?.lastName || splitName(displayName).lastName);
+              setNameError("");
+              setIsNameOpen(true);
+            }}
           />
           <InfoRow
             icon={FaPhone}
             label="Phone"
-            value={currentUser?.phone ?? "Not set"}
-            onClick={onPhoneOpen}
+            value={currentUser?.phone || "Not set"}
+            onClick={() => {
+              setPhoneInput(currentUser?.phone ?? "");
+              setPhoneError("");
+              setIsPhoneOpen(true);
+            }}
           />
           <InfoRow
             icon={FaEnvelope}
             label="Email"
             value={currentUser?.email ?? "No email set"}
+            onClick={() => {
+              setEmailInput(currentUser?.email ?? "");
+              setEmailError("");
+              setIsEmailOpen(true);
+            }}
           />
           <InfoRow
             icon={FaLock}
             label="Password"
-            value={"Change current password"}
+            value="Change current password"
             isPassword
+            onClick={() => {
+              setCurrentPasswordInput("");
+              setNewPasswordInput("");
+              setPasswordError("");
+              setIsPasswordOpen(true);
+            }}
           />
+          <InfoRow
+            icon={FaInfo}
+            label="Member Since"
+            value={currentUser?.createdAt ?? "Unknown"}
+          />
+          {/* Info rows */}
 
-          {/* Name change form */}
+          </div>
+
+          {/* Name change dialog */}
           <DialogRoot
-            initialFocusEl={() => nameInitialRef.current}
             open={isNameOpen}
-            onOpenChange={(details) => setIsNameOpen(details.open)}
+            onOpenChange={(details) => {
+              setIsNameOpen(details.open);
+              if (!details.open) setNameError("");
+            }}
           >
             <DialogContent>
-              <form onSubmit={changeName}>
+              <form onSubmit={handleUpdateName}>
                 <DialogHeader color="black">
                   <DialogTitle>Change Name</DialogTitle>
                 </DialogHeader>
                 <DialogCloseTrigger />
-                <DialogBody pb={6}>
-                <Field>
-                  <Input
-                    ref={nameInitialRef}
-                    placeholder='Your Name'
-                    value={nameInput}
-                    onChange={(e) => setNameInput(e.target.value)}
-                    color="black"
-                  />
-                </Field>
-              </DialogBody>
-              <DialogFooter>
-                <Button type="submit" colorPalette='green' mr={3}>
-                  Save
-                </Button>
-                <Button type="button" colorPalette='grey' onClick={onNameClose}>Cancel</Button>
-              </DialogFooter>
+                <DialogBody pb={6} className="space-y-3">
+                  {nameError && (
+                    <p className="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                      {nameError}
+                    </p>
+                  )}
+                  <Field label="First Name" color="black">
+                    <Input
+                      placeholder="First name"
+                      value={firstNameInput}
+                      onChange={(e) => setFirstNameInput(e.target.value)}
+                      color="black"
+                    />
+                  </Field>
+                  <Field label="Last Name" color="black">
+                    <Input
+                      placeholder="Last name"
+                      value={lastNameInput}
+                      onChange={(e) => setLastNameInput(e.target.value)}
+                      color="black"
+                    />
+                  </Field>
+                </DialogBody>
+                <DialogFooter>
+                  <Button type="submit" colorPalette="green" mr={3}>Save</Button>
+                  <Button type="button" onClick={() => setIsNameOpen(false)}>Cancel</Button>
+                </DialogFooter>
               </form>
             </DialogContent>
           </DialogRoot>
+          {/* Name change dialog */}
 
-          {/* Phone change form */}
+          {/* Phone change dialog */}
           <DialogRoot
-            initialFocusEl={() => phoneInitialRef.current}
             open={isPhoneOpen}
-            onOpenChange={(details) => setIsPhoneOpen(details.open)}
+            onOpenChange={(details) => {
+              setIsPhoneOpen(details.open);
+              if (!details.open) setPhoneError("");
+            }}
           >
             <DialogContent>
-              <form onSubmit={changePhone}>
+              <form onSubmit={handleUpdatePhone}>
                 <DialogHeader color="black">
                   <DialogTitle>Add/Change Phone Number</DialogTitle>
                 </DialogHeader>
                 <DialogCloseTrigger />
-                <DialogBody pb={6}>
-                <Field>
-                  <Input
-                    ref={phoneInitialRef}
-                    placeholder='Enter Phone Number'
-                    value={phoneInput}
-                    onChange={(e) => setPhoneInput(e.target.value)}
-                    color="black"
-                  />
-                </Field>
-              </DialogBody>
-              <DialogFooter>
-                <Button type="submit" colorPalette='green' mr={3}>
-                  Save
-                </Button>
-                <Button type="button" colorPalette='grey' onClick={onPhoneClose}>Cancel</Button>
-              </DialogFooter>
+                <DialogBody pb={6} className="space-y-3">
+                  {phoneError && (
+                    <p className="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                      {phoneError}
+                    </p>
+                  )}
+                  <Field color="black">
+                    <Input
+                      placeholder="Enter Phone Number"
+                      value={phoneInput}
+                      onChange={(e) => setPhoneInput(e.target.value)}
+                      color="black"
+                    />
+                  </Field>
+                </DialogBody>
+                <DialogFooter>
+                  <Button type="submit" colorPalette="green" mr={3}>Save</Button>
+                  <Button type="button" onClick={() => setIsPhoneOpen(false)}>Cancel</Button>
+                </DialogFooter>
               </form>
             </DialogContent>
           </DialogRoot>
+          {/* Phone change dialog */}
 
-        </div>
+          {/* Email change dialog */}
+          <DialogRoot
+            open={isEmailOpen}
+            onOpenChange={(details) => setIsEmailOpen(details.open)}
+          >
+            <DialogContent>
+              <form onSubmit={handleUpdateEmail}>
+                <DialogHeader color="black">
+                  <DialogTitle>Change Email</DialogTitle>
+                </DialogHeader>
+                <DialogCloseTrigger />
+                <DialogBody pb={6} className="space-y-3">
+                  {emailError && (
+                    <p className="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                      {emailError}
+                    </p>
+                  )}
+                  <Field label="New Email" color="black">
+                    <Input
+                      type="email"
+                      placeholder="Enter new email"
+                      value={emailInput}
+                      onChange={(e) => setEmailInput(e.target.value)}
+                      color="black"
+                    />
+                  </Field>
+                </DialogBody>
+                <DialogFooter>
+                  <Button type="submit" colorPalette="green" mr={3}>Save</Button>
+                  <Button type="button" onClick={() => setIsEmailOpen(false)}>Cancel</Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </DialogRoot>
+          {/* Email change dialog */}
+
+          {/* Password change dialog */}
+          <DialogRoot
+            open={isPasswordOpen}
+            onOpenChange={(details) => setIsPasswordOpen(details.open)}
+          >
+            <DialogContent>
+              <form onSubmit={handleUpdatePassword}>
+                <DialogHeader color="black">
+                  <DialogTitle>Change Password</DialogTitle>
+                </DialogHeader>
+                <DialogCloseTrigger />
+                <DialogBody pb={6} className="space-y-3">
+                  {passwordError && (
+                    <p className="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                      {passwordError}
+                    </p>
+                  )}
+                  <Field label="Current Password" color="black">
+                    <Input
+                      type="password"
+                      placeholder="Current password"
+                      value={currentPasswordInput}
+                      onChange={(e) => setCurrentPasswordInput(e.target.value)}
+                      color="black"
+                    />
+                  </Field>
+                  <Field label="New Password" color="black">
+                    <Input
+                      type="password"
+                      placeholder="New password"
+                      value={newPasswordInput}
+                      onChange={(e) => setNewPasswordInput(e.target.value)}
+                      color="black"
+                    />
+                  </Field>
+                </DialogBody>
+                <DialogFooter>
+                  <Button type="submit" colorPalette="green" mr={3}>Save</Button>
+                  <Button type="button" onClick={() => setIsPasswordOpen(false)}>Cancel</Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </DialogRoot>
+          {/* Password change dialog */}
 
         {/*Only show if a hirer has logged in*/}
         {currentUser?.role === "hirer" && (

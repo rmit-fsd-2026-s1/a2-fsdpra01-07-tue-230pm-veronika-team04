@@ -10,6 +10,7 @@ export type StoredUser = {
   password?: string;
   phone: string;
   role: UserRole;
+  createdAt?: string;
 };
 
 export type CurrentUser = StoredUser;

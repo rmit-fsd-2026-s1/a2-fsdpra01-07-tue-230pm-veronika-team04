@@ -139,6 +139,57 @@ export async function updateProfile(req: Request, res: Response): Promise<void> 
   }
 }
 
+export async function updateEmail(req: Request, res: Response): Promise<void> {
+  try {
+    const userID = parseUserID(req.params.userID);
+    const { email } = req.body;
+
+    if (userID === null) {
+      res.status(400).json({ message: "Invalid userID" });
+      return;
+    }
+
+    if (!email || typeof email !== "string" || !email.trim()) {
+      res.status(400).json({ message: "Email is required" });
+      return;
+    }
+
+    const userRepository = AppDataSource.getRepository(User);
+
+    // Check if email is already taken by another user
+    const existing = await userRepository.findOne({ where: { email: email.trim() } });
+    if (existing && existing.userID !== userID) {
+      res.status(409).json({ message: "Email is already in use" });
+      return;
+    }
+
+    const user = await userRepository.findOne({ where: { userID } });
+    if (!user) {
+      res.status(404).json({ message: "User not found" });
+      return;
+    }
+
+    user.email = email.trim();
+    const savedUser = await userRepository.save(user);
+
+    res.status(200).json({
+      message: "Email updated successfully",
+      profile: {
+        userID: savedUser.userID,
+        firstName: savedUser.firstName,
+        lastName: savedUser.lastName,
+        email: savedUser.email,
+        phone: savedUser.phone,
+        role: savedUser.role,
+        dateOfJoining: savedUser.createdAt,
+      },
+    });
+  } catch (error) {
+    console.error("Update email failed:", error);
+    res.status(500).json({ message: "Something went wrong. Please try again later." });
+  }
+}
+
 export async function updatePassword(req: Request, res: Response): Promise<void> {
   try {
     const userID = parseUserID(req.params.userID);

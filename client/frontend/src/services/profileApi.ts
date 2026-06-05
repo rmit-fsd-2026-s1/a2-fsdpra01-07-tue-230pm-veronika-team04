@@ -10,7 +10,7 @@ type ProfileResponse = {
     email: string;
     phone: string | null;
     role: UserRole;
-    dateOfJoining: string;
+    createdAt: string;
     accountID: number | null;
     reputation: number | null;
     complianceScore: number | null;
@@ -30,9 +30,11 @@ type UpdatePasswordPayload = {
 
 export const profileApi = {
   getProfile: (userID: number) =>
-    apiClient.get<ProfileResponse>(`/api/profile/${userID}`),
+    apiClient.get<ProfileResponse>(`/profile/${userID}`),
   updateProfile: (userID: number, payload: UpdateProfilePayload) =>
-    apiClient.patch<ProfileResponse>(`/api/profile/${userID}`, payload),
+    apiClient.patch<ProfileResponse>(`/profile/${userID}`, payload),
+  updateEmail: (userID: number, email: string) =>
+  apiClient.patch<ProfileResponse>(`/profile/${userID}/email`, { email }),
   updatePassword: (userID: number, payload: UpdatePasswordPayload) =>
-    apiClient.patch<{ message: string }>(`/api/profile/${userID}/password`, payload),
+    apiClient.patch<{ message: string }>(`/profile/${userID}/password`, payload),
 };
