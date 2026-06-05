@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import { AppDataSource } from "./data-source";
 import authRoutes from "./routes/authRoutes";
 import profileRoutes from "./routes/profileRoutes";
+import venuePreferenceRoutes from "./routes/venuePreferenceRoutes";
 import venueRoutes from "./routes/venueRoutes";
 
 dotenv.config();
@@ -22,6 +23,7 @@ app.get("/", (_req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/profile", profileRoutes);
 app.use("/api/venues", venueRoutes);
+app.use("/api/venue-preferences", venuePreferenceRoutes);
 
 AppDataSource.initialize()
   .then(() => {
