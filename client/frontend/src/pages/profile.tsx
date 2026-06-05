@@ -51,6 +51,8 @@ function InfoRow({ icon, label, value, highlight, isPassword, onClick }: InfoRow
   );
 }
 
+// TODO: This is a bit hacky - Ideally should have an endpoint to fetch the user's uploaded documents instead of relying on localStorage.
+// Change later to fetch from backend and store in context if needed across multiple pages
 // My Document upload table
 function DocUploadRow({ label, document, onUpload, onDelete }: {
   label: string;
@@ -93,6 +95,8 @@ function DocUploadRow({ label, document, onUpload, onDelete }: {
     </div>
   );
 }
+// TODO: This is a bit hacky - Ideally should have an endpoint to fetch the user's uploaded documents instead of relying on localStorage.
+// Change later to fetch from backend and store in context if needed across multiple pages
 
 const defaultDocs: ComplianceDocuments = {
   driverLicence: null,
@@ -146,6 +150,11 @@ export default function UserProfile() {
     }
   }, [currentUser]);
 
+
+
+
+  // TODO: This is a bit hacky - Ideally should have an endpoint to fetch the user's uploaded documents instead of relying on localStorage.
+  // Change later to fetch from backend and store in context if needed across multiple pages
   useEffect(() => {
     if (currentUser?.email) {
       const stored = getStoredDocuments(currentUser.email);
@@ -162,12 +171,14 @@ export default function UserProfile() {
     if (documents.businessRegistrationCertificate) score += 1;
     calcCredibility(score);
   }, [documents]);
+  // TODO: This is a bit hacky - Ideally should have an endpoint to fetch the user's uploaded documents instead of relying on localStorage.
+  // Change later to fetch from backend and store in context if needed across multiple pages
+
+
 
   useEffect(() => {
-  console.log("Current User in Profile:", currentUser);
-}, [currentUser]);
-
-
+    console.log("Current User in Profile:", currentUser);
+  }, [currentUser]);
 
 
   async function handleUpdateName(e: React.FormEvent<HTMLElement>) {
