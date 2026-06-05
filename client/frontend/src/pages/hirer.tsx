@@ -2,12 +2,15 @@ import { Button } from "@chakra-ui/react";
 import { useRouter } from "next/router";
 import { type FormEvent, useEffect, useState } from "react";
 
+import PreferredVenueCard from "@/components/Hirer/PreferredVenueCard";
 import VenueList from "@/components/Hirer/VenueList";
 import Layout from "@/components/layout/Layout";
 import { useAuth } from "@/context/AuthContext";
+import { venuePreferenceApi } from "@/services/venuePreferenceApi";
 import { venueApi } from "@/services/venueApi";
 import type { SuitabilityTag } from "@/services/venueApi";
 import type { Venue } from "@/types/venue";
+import type { PreferredVenue } from "@/types/venuePreference";
 
 export default function HirerPage() {
   const router = useRouter();
@@ -21,8 +24,12 @@ export default function HirerPage() {
   const [capacity, setCapacity] = useState("");
   const [suitability, setSuitability] = useState("");
   const [suitabilityTags, setSuitabilityTags] = useState<SuitabilityTag[]>([]);
+  const [preferredVenues, setPreferredVenues] = useState<PreferredVenue[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [isPreferredLoading, setIsPreferredLoading] = useState(false);
+  const [isPreferenceUpdating, setIsPreferenceUpdating] = useState(false);
+  const [preferredError, setPreferredError] = useState("");
 
   useEffect(() => {
     if (!isAuthReady) {
@@ -41,6 +48,7 @@ export default function HirerPage() {
 
     loadAllVenues();
     loadSuitabilityTags();
+    loadPreferredVenues(currentUser.accountID);
   }, [currentUser, isAuthReady]);
 
   async function loadAllVenues() {
@@ -97,6 +105,105 @@ export default function HirerPage() {
     }
   }
 
+  async function loadPreferredVenues(accountID: number | null | undefined) {
+    if (!accountID) {
+      setPreferredError("Unable to load preferred venues. Please try again later.");
+      return;
+    }
+
+    try {
+      setIsPreferredLoading(true);
+      setPreferredError("");
+
+      const response = await venuePreferenceApi.getHirerPreferredVenues(accountID);
+      setPreferredVenues(response.data.preferredVenues);
+    } catch {
+      setPreferredError("Unable to load preferred venues. Please try again later.");
+    } finally {
+      setIsPreferredLoading(false);
+    }
+  }
+
+  async function handleAddToPreferred(venueID: number) {
+    if (!currentUser?.accountID) {
+      setPreferredError("Unable to update preferred venues. Please try again later.");
+      return;
+    }
+
+    try {
+      setIsPreferenceUpdating(true);
+      setPreferredError("");
+
+      const response = await venuePreferenceApi.addVenuePreference({
+        hireAccountID: currentUser.accountID,
+        venueID,
+      });
+
+      setPreferredVenues(response.data.preferredVenues);
+    } catch {
+      setPreferredError("Unable to update preferred venues. Please try again later.");
+    } finally {
+      setIsPreferenceUpdating(false);
+    }
+  }
+
+  async function handleMovePreferred(index: number, direction: -1 | 1) {
+    if (!currentUser?.accountID) {
+      setPreferredError("Unable to update preferred venues. Please try again later.");
+      return;
+    }
+
+    const newOrder = [...sortedPreferredVenues];
+    const nextIndex = index + direction;
+
+    if (nextIndex < 0 || nextIndex >= newOrder.length) {
+      return;
+    }
+
+    const currentVenue = newOrder[index];
+    newOrder[index] = newOrder[nextIndex];
+    newOrder[nextIndex] = currentVenue;
+
+    try {
+      setIsPreferenceUpdating(true);
+      setPreferredError("");
+
+      const response = await venuePreferenceApi.reorderVenuePreferences({
+        hireAccountID: currentUser.accountID,
+        venueIDs: newOrder.map((venue) => venue.id),
+      });
+
+      setPreferredVenues(response.data.preferredVenues);
+    } catch {
+      setPreferredError("Unable to update preferred venues. Please try again later.");
+    } finally {
+      setIsPreferenceUpdating(false);
+    }
+  }
+
+  async function handleRemovePreferred(venueID: number) {
+    if (!currentUser?.accountID) {
+      setPreferredError("Unable to update preferred venues. Please try again later.");
+      return;
+    }
+
+    try {
+      setIsPreferenceUpdating(true);
+      setPreferredError("");
+
+      const response = await venuePreferenceApi.removeVenuePreference(
+        currentUser.accountID,
+        venueID,
+      );
+
+      setPreferredVenues(response.data.preferredVenues);
+    } catch {
+      setPreferredError("Unable to update preferred venues. Please try again later.");
+    } finally {
+      setIsPreferenceUpdating(false);
+    }
+  }
+
   const navItems = [
     { label: "Home", href: "/" },
     { label: "My Dashboard", href: "/hirer" },
@@ -115,6 +222,11 @@ export default function HirerPage() {
       },
     };
   }
+
+  const sortedPreferredVenues = [...preferredVenues].sort(
+    (a, b) => a.preferenceRank - b.preferenceRank,
+  );
+  const preferredVenueIds = sortedPreferredVenues.map((venue) => venue.id);
 
   if (!isAuthReady) {
     return (
@@ -283,19 +395,44 @@ export default function HirerPage() {
               </div>
             </form>
 
-            <VenueList venues={venues} isLoading={isLoading} error={error} />
+            {preferredError ? (
+              <p className="text-sm text-red-600">{preferredError}</p>
+            ) : null}
+
+            <VenueList
+              venues={venues}
+              isLoading={isLoading}
+              error={error}
+              preferredVenueIds={preferredVenueIds}
+              onAddToPreferred={handleAddToPreferred}
+              isAddingPreferred={isPreferenceUpdating}
+            />
           </div>
         ) : activeSection === "preferred" ? (
-          <div className="rounded border border-zinc-300 bg-white p-6">
-            <h2 className="text-xl font-semibold text-zinc-950">
-              Preferred venues
-            </h2>
-            <p className="mt-2 text-sm text-zinc-600">
-              Preferred venue ranking will be restored here after the browse
-              section is stable.
+          isPreferredLoading ? (
+            <p className="text-sm text-zinc-600">Loading preferred venues...</p>
+          ) : preferredError ? (
+            <p className="text-sm text-red-600">{preferredError}</p>
+          ) : sortedPreferredVenues.length === 0 ? (
+            <p className="text-sm text-zinc-600">
+              No preferred venues selected yet.
             </p>
-            {/* TODO: Restore preferred venue list, ranking, remove, and apply actions. */}
-          </div>
+          ) : (
+            <div className="grid gap-4">
+              {sortedPreferredVenues.map((venue, index) => (
+                <PreferredVenueCard
+                  key={venue.id}
+                  venue={venue}
+                  rank={index + 1}
+                  isFirst={index === 0}
+                  isLast={index === sortedPreferredVenues.length - 1}
+                  onMoveUp={() => handleMovePreferred(index, -1)}
+                  onMoveDown={() => handleMovePreferred(index, 1)}
+                  onRemove={() => handleRemovePreferred(venue.id)}
+                />
+              ))}
+            </div>
+          )
         ) : (
           <div className="rounded border border-zinc-300 bg-white p-6">
             <h2 className="text-xl font-semibold text-zinc-950">
