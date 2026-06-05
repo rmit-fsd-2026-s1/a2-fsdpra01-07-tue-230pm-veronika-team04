@@ -110,8 +110,9 @@ export default function UserProfile() {
 
   // Initialise the current user
   const { currentUser, isAuthReady, overrideCurrentUser } = useAuth();
-  const [displayName, setDisplayName] = useState<string>(currentUser?.name ?? "User");
+  const displayName = currentUser?.name ?? "User";
   const [documents, setDocuments] = useState<ComplianceDocuments>(defaultDocs);
+  const [hirerReputation, setHirerReputation] = useState<number | null>(null);
   const [credibility, calcCredibility] = useState<number>(0.0);
 
   // Form inputs
@@ -145,6 +146,7 @@ export default function UserProfile() {
   }, [currentUser, isAuthReady]);
 
   useEffect(() => {
+<<<<<<< HEAD
     if (currentUser?.name) {
       setDisplayName(currentUser.name);
     }
@@ -156,6 +158,8 @@ export default function UserProfile() {
   // TODO: This is a bit hacky - Ideally should have an endpoint to fetch the user's uploaded documents instead of relying on localStorage.
   // Change later to fetch from backend and store in context if needed across multiple pages
   useEffect(() => {
+=======
+>>>>>>> f7810e98de9b177d22226f856ac7251ef819fcc2
     if (currentUser?.email) {
       const stored = getStoredDocuments(currentUser.email);
     if (stored) 
@@ -177,8 +181,46 @@ export default function UserProfile() {
 
 
   useEffect(() => {
+<<<<<<< HEAD
     console.log("Current User in Profile:", currentUser);
   }, [currentUser]);
+=======
+  console.log("Current User in Profile:", currentUser);
+}, [currentUser]);
+
+  useEffect(() => {
+    if (!currentUser?.userID || currentUser.role !== "hirer") {
+      return;
+    }
+
+    let isMounted = true;
+    const userID = currentUser.userID;
+
+    async function loadProfileReputation() {
+      try {
+        const response = await profileApi.getProfile(userID);
+
+        if (isMounted) {
+          setHirerReputation(response.data.profile.reputation ?? 0);
+        }
+      } catch (error) {
+        console.error("Failed to load hirer reputation:", error);
+
+        if (isMounted) {
+          setHirerReputation(null);
+        }
+      }
+    }
+
+    loadProfileReputation();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [currentUser]);
+
+
+>>>>>>> f7810e98de9b177d22226f856ac7251ef819fcc2
 
 
   async function handleUpdateName(e: React.FormEvent<HTMLElement>) {
@@ -203,7 +245,6 @@ export default function UserProfile() {
         lastName,
         name: `${firstName} ${lastName}`.trim(),
       });
-      setDisplayName(`${firstName} ${lastName}`.trim());
       setIsNameOpen(false);
       toaster.create({ title: "Name updated successfully!", type: "success", duration: 3000, closable: true });
     } catch {
@@ -635,6 +676,26 @@ export default function UserProfile() {
         {/*Only show if a hirer has logged in*/}
         {currentUser?.role === "hirer" && (
           <>
+            <h1 className="text-3xl mt-10 font-bold text-gray-900 mb-6">My Reputation</h1>
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden p-6 mb-8">
+              <div className="flex items-center gap-3">
+                <p className="text-sm text-gray-600">Average reputation:</p>
+                <HStack gap={1}>
+                  {Array.from({ length: 5 }).map((_, index) => (
+                    <Icon
+                      as={FaStar}
+                      key={index}
+                      color={index < Math.round(hirerReputation ?? 0) ? "yellow.400" : "gray.300"}
+                      boxSize={4}
+                    />
+                  ))}
+                </HStack>
+                <p className="text-sm text-gray-500">
+                  ({hirerReputation ?? 0}/5)
+                </p>
+              </div>
+            </div>
+
             <h1 className="text-3xl mt-10 font-bold text-gray-900 mb-6">My Documents</h1>
             <div className="flex items-center gap-3 mb-4">
               {/* Star rating based on uploaded documents */}

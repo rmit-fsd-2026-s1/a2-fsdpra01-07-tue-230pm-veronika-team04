@@ -80,6 +80,9 @@ function mapBooking(booking: Booking) {
     guestCount: booking.guestCount,
     duration: booking.duration,
     status: booking.status,
+    rating: booking.rating ?? null,
+    vendorComment: booking.vendorComment ?? null,
+    vendorComments: booking.vendorComments ?? null,
     createdAt: booking.createdAt.toISOString(),
   };
 }
@@ -173,6 +176,9 @@ export async function createBooking(
       guestCount,
       duration,
       status: "Pending",
+      rating: null,
+      vendorComment: null,
+      vendorComments: null,
     });
 
     const savedBooking = await bookingRepository.save(booking);

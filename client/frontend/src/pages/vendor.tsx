@@ -8,9 +8,11 @@ import {DialogBody, DialogCloseTrigger, DialogContent, DialogFooter,
   DialogHeader, DialogRoot, DialogTitle,
 } from "@/components/ui/dialog";
 import { Field } from "@/components/ui/field";
+import { Rating } from "@/components/ui/rating";
 import { toaster } from "@/components/ui/toaster";
 import Layout from "@/components/layout/Layout";
 import { useAuth } from "@/context/AuthContext";
+import { bookingApi } from "@/services/bookingApi";
 import { venueApi } from "@/services/venueApi";
 import type { Venue } from "@/types/venue";
 
@@ -48,6 +50,18 @@ const emptyVenueForm = {
   image: "",
 };
 
+function getHirerDisplayName(application: BookingApplication) {
+  return application.hirerName?.trim() || application.hirerEmail || "Unknown hirer";
+}
+
+function formatReputation(reputation: number | null | undefined) {
+  if (typeof reputation === "number" && reputation > 0) {
+    return `${reputation} / 5`;
+  }
+
+  return "Not rated yet";
+}
+
 export default function VendorPage() {
   
   const router = useRouter();
@@ -81,17 +95,21 @@ export default function VendorPage() {
 
   // Remove the sampleApplicants and summaryRows hard-coded consts entirely
 
-  // useState for applications
+  // Applications shown in the vendor Applicants tab.
   const [applications, setApplications] = useState<BookingApplication[]>([]);
   const [isLoadingApplications, setIsLoadingApplications] = useState(false);
   const [applicationError, setApplicationError] = useState("");
 
-  // useState for review dialog
+  // Review dialog edits status, rating, and comment together.
   const [reviewingApplication, setReviewingApplication] = useState<BookingApplication | null>(null);
-  const [vendorComments, setVendorComments] = useState("");
-  const [addComment, setAddComment] = useState(false);
+  const [reviewStatus, setReviewStatus] = useState<"Accepted" | "Rejected">("Accepted");
+  const [ratingValue, setRatingValue] = useState(0);
+  const [vendorComment, setVendorComment] = useState("");
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
   const [reviewError, setReviewError] = useState("");
+  const [reviewHistory, setReviewHistory] = useState<BookingApplication[]>([]);
+  const [isReviewHistoryLoading, setIsReviewHistoryLoading] = useState(false);
+  const [reviewHistoryError, setReviewHistoryError] = useState("");
 
   // Will validate user login and if they're a vendor role
   useEffect(() => {
@@ -178,7 +196,7 @@ export default function VendorPage() {
   const displayName = currentUser.name || "Vendor";
   const venueMessage = !vendorAccountID ? "No vendor account is linked to this user." : venueError;
 
-  // Triggers after submittingor updating a new venue
+  // Refresh the vendor's venue list after create, update, or delete.
   async function refreshVendorVenues(accountID: number) {
     const response = await venueApi.getVenueByVendorId(accountID);
     setVenues(response.data.venues);
@@ -347,50 +365,83 @@ export default function VendorPage() {
   }
 
   function openReviewApplication(application: BookingApplication) {
+    // Prefill the dialog so vendors can update an existing review later.
     setReviewingApplication(application);
-    setVendorComments(application.vendorComments ?? "");
-    setAddComment(!!application.vendorComments);
+    setReviewStatus(application.status === "Rejected" ? "Rejected" : "Accepted");
+    setRatingValue(application.rating ?? 0);
+    setVendorComment(application.vendorComment ?? "");
     setReviewError("");
+    void loadReviewHistory(application.hirerAccountID ?? application.hireAccountID);
   }
 
-  async function handleReviewSubmit(decision: "approved" | "rejected") {
+  function closeReviewDialog() {
+    setReviewingApplication(null);
+    setReviewError("");
+    setReviewHistory([]);
+    setReviewHistoryError("");
+    setIsReviewHistoryLoading(false);
+  }
+
+  async function loadReviewHistory(hireAccountID: number) {
+    setReviewHistory([]);
+    setReviewHistoryError("");
+    setIsReviewHistoryLoading(true);
+
+    try {
+      const response = await bookingApi.getHirerBookingHistory(hireAccountID);
+      setReviewHistory(response.data.bookings);
+    } catch (error) {
+      console.error("Error loading hirer history:", error);
+      setReviewHistoryError("Unable to load historical hire list.");
+    } finally {
+      setIsReviewHistoryLoading(false);
+    }
+  }
+
+  async function handleReviewSubmit() {
     if (!reviewingApplication || !vendorAccountID) return;
-    const accountID = vendorAccountID;
+
+    if (ratingValue < 0 || ratingValue > 5) {
+      setReviewError("Rating must be between 0 and 5.");
+      return;
+    }
 
     setIsSubmittingReview(true);
     setReviewError("");
 
     try {
-      await applicationApi.updateBookingApplication(
+      // One request updates status, rating, and comment on the booking.
+      const response = await applicationApi.updateBookingApplication(
         reviewingApplication.bookingID,
-        decision,
-        addComment ? vendorComments.trim() || undefined : undefined,
+        {
+          vendorAccountID,
+          status: reviewStatus,
+          rating: ratingValue,
+          vendorComment: vendorComment.trim(),
+        },
       );
-      // Refresh applications list
-      const response = await applicationApi.getAllBookingApplications(vendorAccountID);
-      setApplications(response.data.bookings);
-      setReviewingApplication(null);
+      setApplications((currentApplications) =>
+        currentApplications.map((application) =>
+          application.bookingID === reviewingApplication.bookingID
+            ? response.data.booking
+            : application,
+        ),
+      );
+      closeReviewDialog();
       toaster.create({
-        title: decision === "approved" ? "Application accepted" : "Application rejected",
-        description: `${reviewingApplication.eventName} has been ${decision === "approved" ? "accepted" : "rejected"}.`,
+        title: "Review updated",
+        description: `${reviewingApplication.eventName} review has been saved.`,
         type: "success",
         duration: 3000,
         closable: true,
       });
     } catch (error) {
       console.error("Error submitting review:", error);
-      setReviewError("Unable to submit review right now.");
+      setReviewError("Unable to save review right now.");
     } finally {
       setIsSubmittingReview(false);
     }
   }
-
-
-
-
-
-
-
 
   return (
     <Layout
@@ -507,24 +558,49 @@ export default function VendorPage() {
                       </p>
                     </div>
 
-                    {application.status === "Pending" && (
-                      <Button
-                        mt={4}
-                        size="sm"
-                        bg="#095d44"
-                        color="white"
-                        onClick={() => openReviewApplication(application)}
-                      >
-                        Review
-                      </Button>
-                    )}
-
-                    {application.vendorComments && (
+                    {application.vendorComment && (
                       <p className="mt-3 text-sm text-zinc-600">
-                        <span className="font-medium text-zinc-950">Your comment: </span>
-                        {application.vendorComments}
+                        <span className="font-medium text-zinc-950">Vendor comment: </span>
+                        {application.vendorComment}
                       </p>
                     )}
+
+                    <div className="mt-4 flex flex-wrap items-end justify-between gap-3">
+                      <Button
+                        size="sm"
+                        bg={application.status === "Pending" ? "#095d44" : "white"}
+                        borderColor={application.status === "Pending" ? "#095d44" : "#a1a1aa"}
+                        borderWidth={application.status === "Pending" ? "1px" : "1.5px"}
+                        color={application.status === "Pending" ? "white" : "black"}
+                        variant={application.status === "Pending" ? "solid" : "outline"}
+                        _hover={{
+                          bg: application.status === "Pending" ? "#074b37" : "#f4f4f5",
+                          borderColor: application.status === "Pending" ? "#074b37" : "#3f3f46",
+                        }}
+                        onClick={() => openReviewApplication(application)}
+                      >
+                        {application.status === "Pending" ? "Review" : "Update Review"}
+                      </Button>
+
+                      <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3">
+                        <HStack gap={2} align="center">
+                          <span className="text-sm font-medium text-zinc-950">
+                            Rating
+                          </span>
+                          <Rating
+                            readOnly
+                            size="sm"
+                            value={application.rating ?? 0}
+                            icon={<FaStar />}
+                          />
+                          <span className="text-sm text-zinc-600">
+                            {application.rating == null
+                              ? "Not rated yet"
+                              : `${application.rating} / 5`}
+                          </span>
+                        </HStack>
+                      </div>
+                    </div>
                   </article>
                 ))}
               </div>
@@ -536,7 +612,7 @@ export default function VendorPage() {
         {/* Review Application Dialog */}
         <DialogRoot
           open={reviewingApplication !== null}
-          onOpenChange={(details) => { if (!details.open) setReviewingApplication(null); }}
+          onOpenChange={(details) => { if (!details.open) closeReviewDialog(); }}
         >
           <DialogContent>
             <DialogHeader>
@@ -557,6 +633,35 @@ export default function VendorPage() {
                 <p className="text-sm text-zinc-600">{reviewingApplication?.venueLocation}</p>
               </div>
 
+              {/* Hirer details */}
+              {reviewingApplication && (
+                <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 space-y-2">
+                  <h3 className="text-sm font-semibold text-zinc-950">Hirer Summary</h3>
+                  <div className="grid grid-cols-2 gap-2 text-sm text-zinc-700">
+                    <p>
+                      <span className="font-medium text-zinc-950">Hirer</span>
+                      <br />
+                      {getHirerDisplayName(reviewingApplication)}
+                    </p>
+                    <p>
+                      <span className="font-medium text-zinc-950">Email</span>
+                      <br />
+                      {reviewingApplication.hirerEmail || "Not provided"}
+                    </p>
+                    <p>
+                      <span className="font-medium text-zinc-950">Reputation</span>
+                      <br />
+                      {formatReputation(reviewingApplication.hirerReputation)}
+                    </p>
+                    <p>
+                      <span className="font-medium text-zinc-950">Compliance score</span>
+                      <br />
+                      {reviewingApplication.complianceScore ?? 0}
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* Booking details */}
               <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 space-y-2">
                 <h3 className="text-sm font-semibold text-zinc-950">Booking Details</h3>
@@ -569,51 +674,120 @@ export default function VendorPage() {
                 </div>
               </div>
 
-              {/* Optional comment */}
               <div className="space-y-2">
-                <label className="flex items-center gap-2 text-sm text-zinc-700 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={addComment}
-                    onChange={(e) => {
-                      setAddComment(e.target.checked);
-                      if (!e.target.checked) setVendorComments("");
-                    }}
-                  />
-                  Add a comment to this application
-                </label>
-                {addComment && (
-                  <textarea
-                    className="min-h-24 w-full rounded border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-700 outline-none focus:border-[#095d44]"
-                    value={vendorComments}
-                    onChange={(e) => setVendorComments(e.target.value)}
-                    placeholder="Optional comments for the hirer..."
-                  />
+                <h3 className="text-sm font-semibold text-zinc-950">
+                  Historical Hire List
+                </h3>
+
+                {isReviewHistoryLoading ? (
+                  <p className="text-sm text-zinc-600">
+                    Loading historical hire list...
+                  </p>
+                ) : reviewHistoryError ? (
+                  <p className="text-sm text-red-600">
+                    Unable to load historical hire list.
+                  </p>
+                ) : reviewHistory.length === 0 ? (
+                  <p className="text-sm text-zinc-600">
+                    No previous hire history found.
+                  </p>
+                ) : (
+                  <div className="overflow-x-auto rounded border border-zinc-200">
+                    <table className="min-w-full text-left text-sm text-zinc-700">
+                      <thead className="border-b border-zinc-200 bg-zinc-50 text-zinc-950">
+                        <tr>
+                          <th className="px-3 py-2 font-semibold">Venue name</th>
+                          <th className="px-3 py-2 font-semibold">Location</th>
+                          <th className="px-3 py-2 font-semibold">Event name</th>
+                          <th className="px-3 py-2 font-semibold">Date of hire</th>
+                          <th className="px-3 py-2 font-semibold">Star rating</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {reviewHistory.map((booking) => (
+                          <tr
+                            key={booking.bookingID}
+                            className="border-b border-zinc-100 last:border-b-0"
+                          >
+                            <td className="px-3 py-2">{booking.venueName}</td>
+                            <td className="px-3 py-2">{booking.venueLocation}</td>
+                            <td className="px-3 py-2">{booking.eventName}</td>
+                            <td className="px-3 py-2">{booking.eventDate}</td>
+                            <td className="px-3 py-2">
+                              {booking.rating == null
+                                ? "Not rated yet"
+                                : `${booking.rating}/5`}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 )}
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-zinc-950">Decision status</p>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    bg={reviewStatus === "Accepted" ? "#095d44" : "white"}
+                    color={reviewStatus === "Accepted" ? "white" : "black"}
+                    variant={reviewStatus === "Accepted" ? "solid" : "outline"}
+                    onClick={() => setReviewStatus("Accepted")}
+                  >
+                    Accepted
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    colorPalette="red"
+                    variant={reviewStatus === "Rejected" ? "solid" : "outline"}
+                    onClick={() => setReviewStatus("Rejected")}
+                  >
+                    Rejected
+                  </Button>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-zinc-950">Rating</p>
+                <Rating
+                  colorPalette="yellow"
+                  value={ratingValue}
+                  icon={<FaStar />}
+                  onValueChange={(details) => setRatingValue(details.value)}
+                />
+                <p className="text-sm text-zinc-600">{ratingValue} / 5</p>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-zinc-950">
+                  Vendor comment
+                </label>
+                <textarea
+                  className="min-h-24 w-full rounded border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-700 outline-none focus:border-[#095d44]"
+                  value={vendorComment}
+                  onChange={(e) => setVendorComment(e.target.value)}
+                  placeholder="Optional comments for the hirer..."
+                />
               </div>
             </DialogBody>
             <DialogFooter className="gap-2">
               <Button
                 variant="outline"
-                onClick={() => setReviewingApplication(null)}
+                onClick={closeReviewDialog}
               >
                 Cancel
-              </Button>
-              <Button
-                colorPalette="red"
-                variant="subtle"
-                loading={isSubmittingReview}
-                onClick={() => handleReviewSubmit("rejected")}
-              >
-                Reject
               </Button>
               <Button
                 bg="#095d44"
                 color="white"
                 loading={isSubmittingReview}
-                onClick={() => handleReviewSubmit("approved")}
+                onClick={handleReviewSubmit}
               >
-                Accept
+                Save Review
               </Button>
             </DialogFooter>
           </DialogContent>
