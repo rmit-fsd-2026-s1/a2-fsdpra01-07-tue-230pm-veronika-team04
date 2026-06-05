@@ -1,5 +1,12 @@
 export type BookingApplicationStatus = "Pending" | "Accepted" | "Rejected";
 
+export type UpdateApplicationStatusPayload = {
+  vendorAccountID: number;
+  status: "Accepted" | "Rejected";
+  rating: number;
+  vendorComment: string;
+};
+
 export type CreateBookingPayload = {
   hireAccountID: number;
   venueID: number;
@@ -22,6 +29,13 @@ export type BookingApplication = {
   guestCount: number;
   duration: number;
   status: BookingApplicationStatus;
+  rating: number | null;
+  vendorComment: string | null;
+  vendorComments?: string | null;
+  hirerAccountID?: number;
+  hirerName?: string;
+  hirerEmail?: string;
+  hirerReputation?: number;
+  complianceScore?: number;
   createdAt: string;
-  vendorComments: string | null;
 };

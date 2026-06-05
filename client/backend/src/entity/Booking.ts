@@ -43,6 +43,12 @@ export class Booking {
   @Column({ type: "nvarchar", length: 500, nullable: true, default: null })
   vendorComments: string | null;
 
+  @Column({ type: "float", nullable: true, default: null })
+  rating: number | null;
+
+  @Column({ type: "nvarchar", length: 500, nullable: true, default: null })
+  vendorComment: string | null;
+
   @ManyToOne(() => Venue, (venue) => venue.bookings)
   @JoinColumn({ name: "venueID", referencedColumnName: "venueID" })
   venue: Venue;
