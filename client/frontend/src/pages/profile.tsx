@@ -14,6 +14,7 @@ import router from "next/router";
 import { useAuth, type CurrentUser } from "@/context/AuthContext";
 import { useState, useEffect } from "react";
 import { getStoredDocuments, saveDocuments } from "@/utils/documentStorage";
+import { profileApi } from "@/services/profileApi";
 
 import type { ComplianceDocuments, UploadedDocumentMetadata } from "@/types/user";
 
@@ -140,7 +141,7 @@ export default function UserProfile() {
     if (documents.insuranceCertificate) score += 1;
     if (documents.businessRegistrationCertificate) score += 1;
     calcCredibility(score);
-}, [documents]);
+  }, [documents]);
 
   const [nameInput, setNameInput] = useState("");
   const [phoneInput, setPhoneInput] = useState("");

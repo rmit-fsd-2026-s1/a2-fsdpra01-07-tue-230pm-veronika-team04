@@ -46,6 +46,8 @@ function mapBackendUser(user: BackendAuthUser): CurrentUser {
   return {
     userID: user.userID,
     accountID: user.accountID,
+    firstName: user.firstName,
+    lastName: user.lastName,
     name: `${user.firstName} ${user.lastName}`.trim(),
     email: user.email,
     phone: user.phone ?? "",

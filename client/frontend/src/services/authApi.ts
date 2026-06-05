@@ -10,6 +10,7 @@ export type BackendAuthUser = {
   phone: string | null;
   role: BackendRole;
   accountID: number | null;
+  createdAt?: string;
 };
 
 export type SignupPayload = {
