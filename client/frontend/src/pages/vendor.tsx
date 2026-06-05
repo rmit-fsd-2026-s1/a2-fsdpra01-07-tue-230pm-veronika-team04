@@ -14,33 +14,8 @@ import { useAuth } from "@/context/AuthContext";
 import { venueApi } from "@/services/venueApi";
 import type { Venue } from "@/types/venue";
 
-// TODO: DELETE LATER Sample hard-coded data
-const sampleApplicants = [
-  {
-    id: 1,
-    hirerEmail: "alex@example.com",
-    venueName: "Garden Terrace",
-    eventName: "Engagement Party",
-    guestCount: 80,
-    eventDate: "2026-07-18",
-    eventTime: "18:00",
-    duration: "4 hours",
-    status: "Pending",
-    averageRating: 4.8,
-  },
-  {
-    id: 2,
-    hirerEmail: "morgan@example.com",
-    venueName: "Harbour Room",
-    eventName: "Corporate Mixer",
-    guestCount: 120,
-    eventDate: "2026-08-02",
-    eventTime: "17:30",
-    duration: "3 hours",
-    status: "Accepted",
-    averageRating: 4.2,
-  },
-];
+import { applicationApi } from "@/services/applicationApi";
+import type { BookingApplication } from "@/types/booking";
 
 const summaryRows = [
   {
@@ -104,6 +79,20 @@ export default function VendorPage() {
   const [isDeletingVenue, setIsDeletingVenue] = useState(false);
   const [venueToDelete, setVenueToDelete] = useState<Venue | null>(null);
 
+  // Remove the sampleApplicants and summaryRows hard-coded consts entirely
+
+  // useState for applications
+  const [applications, setApplications] = useState<BookingApplication[]>([]);
+  const [isLoadingApplications, setIsLoadingApplications] = useState(false);
+  const [applicationError, setApplicationError] = useState("");
+
+  // useState for review dialog
+  const [reviewingApplication, setReviewingApplication] = useState<BookingApplication | null>(null);
+  const [vendorComments, setVendorComments] = useState("");
+  const [addComment, setAddComment] = useState(false);
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+  const [reviewError, setReviewError] = useState("");
+
   // Will validate user login and if they're a vendor role
   useEffect(() => {
     if (!isAuthReady) {
@@ -156,6 +145,30 @@ export default function VendorPage() {
     return () => {
       isMounted = false;
     };
+  }, [currentUserRole, isAuthReady, vendorAccountID]);
+
+  useEffect(() => {
+    if (!isAuthReady || currentUserRole !== "vendor" || !vendorAccountID) return;
+
+    let isMounted = true;
+    const accountID = vendorAccountID;
+
+    async function fetchApplications() {
+      setIsLoadingApplications(true);
+      setApplicationError("");
+      try {
+        const response = await applicationApi.getAllBookingApplications(accountID);
+        if (isMounted) setApplications(response.data.bookings);
+      } catch (error) {
+        console.error("Error fetching applications:", error);
+        if (isMounted) setApplicationError("Unable to load applications right now.");
+      } finally {
+        if (isMounted) setIsLoadingApplications(false);
+      }
+    }
+
+    fetchApplications();
+    return () => { isMounted = false; };
   }, [currentUserRole, isAuthReady, vendorAccountID]);
   
   // Default fallback
@@ -305,33 +318,72 @@ export default function VendorPage() {
   if (!venueToDelete || !vendorAccountID) return;
 
   setIsDeletingVenue(true);
-  try {
-    // TODO: wire up API call
-    console.log("Delete venue:", venueToDelete.id);
-    await venueApi.deleteVenue(venueToDelete.id);
+    try {
+      // TODO: wire up API call
+      console.log("Delete venue:", venueToDelete.id);
+      await venueApi.deleteVenue(venueToDelete.id);
 
-    await refreshVendorVenues(vendorAccountID);
-    toaster.create({
-      title: "Venue deleted",
-      description: `${venueToDelete.name} has been removed.`,
-      type: "success",
-      duration: 3000,
-      closable: true,
-    });
-  } catch (error) {
-    console.error("Error deleting venue:", error);
-    toaster.create({
-      title: "Delete failed",
-      description: "Unable to delete venue right now.",
-      type: "error",
-      duration: 3000,
-      closable: true,
-    });
-  } finally {
-    setIsDeletingVenue(false);
-    setVenueToDelete(null);
+      await refreshVendorVenues(vendorAccountID);
+      toaster.create({
+        title: "Venue deleted",
+        description: `${venueToDelete.name} has been removed.`,
+        type: "success",
+        duration: 3000,
+        closable: true,
+      });
+    } catch (error) {
+      console.error("Error deleting venue:", error);
+      toaster.create({
+        title: "Delete failed",
+        description: "Unable to delete venue right now.",
+        type: "error",
+        duration: 3000,
+        closable: true,
+      });
+    } finally {
+      setIsDeletingVenue(false);
+      setVenueToDelete(null);
+    }
   }
-}
+
+  function openReviewApplication(application: BookingApplication) {
+    setReviewingApplication(application);
+    setVendorComments(application.vendorComments ?? "");
+    setAddComment(!!application.vendorComments);
+    setReviewError("");
+  }
+
+  async function handleReviewSubmit(decision: "approved" | "rejected") {
+    if (!reviewingApplication || !vendorAccountID) return;
+    const accountID = vendorAccountID;
+
+    setIsSubmittingReview(true);
+    setReviewError("");
+
+    try {
+      await applicationApi.updateBookingApplication(
+        reviewingApplication.bookingID,
+        decision,
+        addComment ? vendorComments.trim() || undefined : undefined,
+      );
+      // Refresh applications list
+      const response = await applicationApi.getAllBookingApplications(vendorAccountID);
+      setApplications(response.data.bookings);
+      setReviewingApplication(null);
+      toaster.create({
+        title: decision === "approved" ? "Application accepted" : "Application rejected",
+        description: `${reviewingApplication.eventName} has been ${decision === "approved" ? "accepted" : "rejected"}.`,
+        type: "success",
+        duration: 3000,
+        closable: true,
+      });
+    } catch (error) {
+      console.error("Error submitting review:", error);
+      setReviewError("Unable to submit review right now.");
+    } finally {
+      setIsSubmittingReview(false);
+    }
+  }
 
 
 
@@ -398,77 +450,175 @@ export default function VendorPage() {
             <div>
               <h2 className="text-xl font-semibold text-zinc-950">Applicants</h2>
               <p className="mt-1 text-sm text-zinc-600">
-                Static preview of booking applications for your venues.
+                Booking applications for your venues.
               </p>
             </div>
 
-            <div className="flex flex-wrap gap-3">
-              <Button size="sm" bg="#095d44">Sort: High to Low</Button>
-              <Button size="sm" bg="white" variant="outline">
-                Sort: Low to High
-              </Button>
-            </div>
+            {isLoadingApplications ? (
+              <p className="text-sm text-zinc-600">Loading applications...</p>
+            ) : applicationError ? (
+              <p className="text-sm text-red-600">{applicationError}</p>
+            ) : applications.length === 0 ? (
+              <p className="text-sm text-zinc-600">No applications yet.</p>
+            ) : (
+              <div className="grid gap-4">
+                {applications.map((application) => (
+                  <article
+                    key={application.bookingID}
+                    className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <h3 className="text-lg font-semibold text-zinc-950">
+                          {application.eventName}
+                        </h3>
+                        <p className="mt-1 text-sm text-zinc-600">
+                          {application.venueName} — {application.venueLocation}
+                        </p>
+                      </div>
+                      <Badge
+                        colorPalette={
+                          application.status === "Accepted" ? "green"
+                          : application.status === "Rejected" ? "red"
+                          : "yellow"
+                        }
+                        variant="subtle"
+                      >
+                        {application.status}
+                      </Badge>
+                    </div>
 
-            <div className="grid gap-4">
-              {sampleApplicants.map((application) => (
-                <article
-                  key={application.id}
-                  className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm"
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <h3 className="text-lg font-semibold text-zinc-950">
-                        {application.eventName}
-                      </h3>
-                      <p className="mt-1 text-sm text-zinc-600">
-                        {application.venueName} - {application.hirerEmail}
+                    <div className="mt-4 grid gap-3 text-sm text-zinc-700 sm:grid-cols-4">
+                      <p>
+                        <span className="block font-medium text-zinc-950">Guests</span>
+                        {application.guestCount}
+                      </p>
+                      <p>
+                        <span className="block font-medium text-zinc-950">Date</span>
+                        {application.eventDate}
+                      </p>
+                      <p>
+                        <span className="block font-medium text-zinc-950">Time</span>
+                        {application.eventTime}
+                      </p>
+                      <p>
+                        <span className="block font-medium text-zinc-950">Duration</span>
+                        {application.duration}h
                       </p>
                     </div>
-                    <Badge
-                      colorPalette={application.status === "Accepted" ? "green" : "yellow"}
-                      variant="subtle"
-                    >
-                      {application.status}
-                    </Badge>
-                  </div>
 
-                  <div className="mt-4 grid gap-3 text-sm text-zinc-700 sm:grid-cols-4">
-                    <p>
-                      <span className="block font-medium text-zinc-950">Guests</span>
-                      {application.guestCount}
-                    </p>
-                    <p>
-                      <span className="block font-medium text-zinc-950">Date</span>
-                      {application.eventDate}
-                    </p>
-                    <p>
-                      <span className="block font-medium text-zinc-950">Time</span>
-                      {application.eventTime}
-                    </p>
-                    <p>
-                      <span className="block font-medium text-zinc-950">Duration</span>
-                      {application.duration}
-                    </p>
-                  </div>
+                    {application.status === "Pending" && (
+                      <Button
+                        mt={4}
+                        size="sm"
+                        bg="#095d44"
+                        color="white"
+                        onClick={() => openReviewApplication(application)}
+                      >
+                        Review
+                      </Button>
+                    )}
 
-                  <HStack gap={1} mt={4}>
-                    {Array.from({ length: 5 }).map((_, index) => (
-                      <Icon
-                        key={index}
-                        as={FaStar}
-                        color={index < Math.round(application.averageRating) ? "green.400" : "gray.300"}
-                      />
-                    ))}
-                    <span className="ml-2 text-sm text-zinc-600">
-                      {application.averageRating.toFixed(1)}
-                    </span>
-                  </HStack>
-                </article>
-              ))}
-            </div>
+                    {application.vendorComments && (
+                      <p className="mt-3 text-sm text-zinc-600">
+                        <span className="font-medium text-zinc-950">Your comment: </span>
+                        {application.vendorComments}
+                      </p>
+                    )}
+                  </article>
+                ))}
+              </div>
+            )}
           </section>
         )}
         {/* Applicants Tab */}
+
+        {/* Review Application Dialog */}
+        <DialogRoot
+          open={reviewingApplication !== null}
+          onOpenChange={(details) => { if (!details.open) setReviewingApplication(null); }}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle color="black">Review Application</DialogTitle>
+            </DialogHeader>
+            <DialogCloseTrigger />
+            <DialogBody className="space-y-4">
+              {reviewError && (
+                <p className="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {reviewError}
+                </p>
+              )}
+
+              {/* Venue details */}
+              <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 space-y-2">
+                <h3 className="text-sm font-semibold text-zinc-950">Venue</h3>
+                <p className="text-sm text-zinc-700">{reviewingApplication?.venueName}</p>
+                <p className="text-sm text-zinc-600">{reviewingApplication?.venueLocation}</p>
+              </div>
+
+              {/* Booking details */}
+              <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 space-y-2">
+                <h3 className="text-sm font-semibold text-zinc-950">Booking Details</h3>
+                <div className="grid grid-cols-2 gap-2 text-sm text-zinc-700">
+                  <p><span className="font-medium text-zinc-950">Event</span><br />{reviewingApplication?.eventName}</p>
+                  <p><span className="font-medium text-zinc-950">Guests</span><br />{reviewingApplication?.guestCount}</p>
+                  <p><span className="font-medium text-zinc-950">Date</span><br />{reviewingApplication?.eventDate}</p>
+                  <p><span className="font-medium text-zinc-950">Time</span><br />{reviewingApplication?.eventTime}</p>
+                  <p><span className="font-medium text-zinc-950">Duration</span><br />{reviewingApplication?.duration}h</p>
+                </div>
+              </div>
+
+              {/* Optional comment */}
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 text-sm text-zinc-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={addComment}
+                    onChange={(e) => {
+                      setAddComment(e.target.checked);
+                      if (!e.target.checked) setVendorComments("");
+                    }}
+                  />
+                  Add a comment to this application
+                </label>
+                {addComment && (
+                  <textarea
+                    className="min-h-24 w-full rounded border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-700 outline-none focus:border-[#095d44]"
+                    value={vendorComments}
+                    onChange={(e) => setVendorComments(e.target.value)}
+                    placeholder="Optional comments for the hirer..."
+                  />
+                )}
+              </div>
+            </DialogBody>
+            <DialogFooter className="gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setReviewingApplication(null)}
+              >
+                Cancel
+              </Button>
+              <Button
+                colorPalette="red"
+                variant="subtle"
+                loading={isSubmittingReview}
+                onClick={() => handleReviewSubmit("rejected")}
+              >
+                Reject
+              </Button>
+              <Button
+                bg="#095d44"
+                color="white"
+                loading={isSubmittingReview}
+                onClick={() => handleReviewSubmit("approved")}
+              >
+                Accept
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </DialogRoot>
+        {/* Review Application Dialog */}
 
 
 

@@ -7,6 +7,7 @@ import bookingRoutes from "./routes/bookingRoutes";
 import profileRoutes from "./routes/profileRoutes";
 import venuePreferenceRoutes from "./routes/venuePreferenceRoutes";
 import venueRoutes from "./routes/venueRoutes";
+import applicationRoutes from "./routes/applicationRoutes";
 
 dotenv.config();
 
@@ -26,6 +27,8 @@ app.use("/api/bookings", bookingRoutes);
 app.use("/api/profile", profileRoutes);
 app.use("/api/venues", venueRoutes);
 app.use("/api/venue-preferences", venuePreferenceRoutes);
+app.use("/api/applications", applicationRoutes);
+
 
 AppDataSource.initialize()
   .then(() => {

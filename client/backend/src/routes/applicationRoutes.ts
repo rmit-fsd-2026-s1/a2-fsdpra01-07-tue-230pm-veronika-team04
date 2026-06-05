@@ -3,7 +3,7 @@ import { getAllApplications, updateApplicationStatus } from "../controllers/appl
 
 const router = Router();
 
-router.get("/", getAllApplications);
+router.get("/vendor/:vendorAccountID", getAllApplications);
 router.put("/:bookingID/status", updateApplicationStatus);
 
 export default router;
