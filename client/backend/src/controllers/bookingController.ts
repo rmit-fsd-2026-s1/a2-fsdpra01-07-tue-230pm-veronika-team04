@@ -26,19 +26,45 @@ function isTimeText(value: string) {
   return /^\d{2}:\d{2}$/.test(value);
 }
 
-function formatDate(value: Date) {
-  const year = value.getFullYear();
-  const month = String(value.getMonth() + 1).padStart(2, "0");
-  const day = String(value.getDate()).padStart(2, "0");
+function formatDate(value: Date | string | null | undefined): string {
+  if (!value) {
+    return "";
+  }
 
-  return `${year}-${month}-${day}`;
+  // MSSQL date columns may come back as "YYYY-MM-DD" strings.
+  if (typeof value === "string") {
+    return value.slice(0, 10);
+  }
+
+  if (value instanceof Date) {
+    const year = value.getFullYear();
+    const month = String(value.getMonth() + 1).padStart(2, "0");
+    const day = String(value.getDate()).padStart(2, "0");
+
+    return `${year}-${month}-${day}`;
+  }
+
+  return "";
 }
 
-function formatTime(value: Date) {
-  const hours = String(value.getHours()).padStart(2, "0");
-  const minutes = String(value.getMinutes()).padStart(2, "0");
+function formatTime(value: Date | string | null | undefined): string {
+  if (!value) {
+    return "";
+  }
 
-  return `${hours}:${minutes}`;
+  // MSSQL time/datetime values may come back as "HH:mm:ss" strings.
+  if (typeof value === "string") {
+    return value.slice(0, 5);
+  }
+
+  if (value instanceof Date) {
+    const hours = String(value.getHours()).padStart(2, "0");
+    const minutes = String(value.getMinutes()).padStart(2, "0");
+
+    return `${hours}:${minutes}`;
+  }
+
+  return "";
 }
 
 function mapBooking(booking: Booking) {
@@ -46,6 +72,7 @@ function mapBooking(booking: Booking) {
     bookingID: booking.bookingID,
     venueID: booking.venueID,
     venueName: booking.venue?.venueName || "",
+    venueLocation: booking.venue?.location || "",
     hireAccountID: booking.accountID,
     eventName: booking.eventName,
     eventDate: formatDate(booking.eventDate),
@@ -157,6 +184,51 @@ export async function createBooking(
     });
   } catch (error) {
     console.error("Create booking failed:", error);
+    res.status(500).json({
+      message: "Something went wrong. Please try again later.",
+    });
+  }
+}
+
+export async function getHirerBookingHistory(
+  req: Request,
+  res: Response,
+): Promise<void> {
+  try {
+    const hireAccountID = toPositiveInt(req.params.hireAccountID);
+
+    if (!hireAccountID) {
+      res.status(400).json({ message: "Invalid hireAccountID" });
+      return;
+    }
+
+    const hirerAccountRepository = AppDataSource.getRepository(HirerAccount);
+    const hirerAccount = await hirerAccountRepository.findOneBy({
+      hireAccountID,
+    });
+
+    if (!hirerAccount) {
+      res.status(404).json({ message: "Hirer account not found" });
+      return;
+    }
+
+    const bookingRepository = AppDataSource.getRepository(Booking);
+    const bookings = await bookingRepository.find({
+      where: { accountID: hireAccountID },
+      relations: {
+        venue: true,
+      },
+      order: {
+        createdAt: "DESC",
+      },
+    });
+
+    res.status(200).json({
+      message: "Booking history retrieved successfully",
+      bookings: bookings.map(mapBooking),
+    });
+  } catch (error) {
+    console.error("Get booking history failed:", error);
     res.status(500).json({
       message: "Something went wrong. Please try again later.",
     });
