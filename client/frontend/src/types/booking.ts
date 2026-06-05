@@ -23,4 +23,5 @@ export type BookingApplication = {
   duration: number;
   status: BookingApplicationStatus;
   createdAt: string;
+  vendorComments: string | null;
 };

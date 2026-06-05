@@ -40,6 +40,9 @@ export class Booking {
   @Column({ type: "datetime2", default: () => "GETDATE()" })
   createdAt: Date;
 
+  @Column({ type: "nvarchar", length: 500, nullable: true, default: null })
+  vendorComments: string | null;
+
   @ManyToOne(() => Venue, (venue) => venue.bookings)
   @JoinColumn({ name: "venueID", referencedColumnName: "venueID" })
   venue: Venue;
