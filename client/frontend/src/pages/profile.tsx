@@ -5,7 +5,7 @@ import { DialogBody, DialogCloseTrigger, DialogContent, DialogFooter, DialogHead
 import { Field } from "@/components/ui/field";
 import { toaster } from "@/components/ui/toaster";
 import {
-  FaChevronRight, FaEnvelope, FaInfo,FaLock, FaPhone, FaRegQuestionCircle, FaStar,
+  FaChevronRight, FaEnvelope, FaInfo,FaLock, FaPhone, FaRegQuestionCircle, FaStar, FaCalendar
 } from "react-icons/fa";
 
 import Layout from "@/components/layout/Layout";
@@ -442,7 +442,7 @@ export default function UserProfile() {
             }}
           />
           <InfoRow
-            icon={FaInfo}
+            icon={FaCalendar}
             label="Member Since"
             value={
               currentUser?.createdAt 
