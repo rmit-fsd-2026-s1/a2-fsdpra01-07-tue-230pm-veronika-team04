@@ -14,6 +14,7 @@ export type BookingApplication = {
   bookingID: number;
   venueID: number;
   venueName: string;
+  venueLocation: string;
   hireAccountID: number;
   eventName: string;
   eventDate: string;

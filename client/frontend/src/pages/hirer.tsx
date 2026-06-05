@@ -3,6 +3,7 @@ import axios from "axios";
 import { useRouter } from "next/router";
 import { type FormEvent, useEffect, useState } from "react";
 
+import BookingHistoryList from "@/components/Hirer/BookingHistoryList";
 import PreferredVenueCard from "@/components/Hirer/PreferredVenueCard";
 import VenueList from "@/components/Hirer/VenueList";
 import Layout from "@/components/layout/Layout";
@@ -22,6 +23,7 @@ import { bookingApi } from "@/services/bookingApi";
 import { venuePreferenceApi } from "@/services/venuePreferenceApi";
 import { venueApi } from "@/services/venueApi";
 import type { SuitabilityTag } from "@/services/venueApi";
+import type { BookingApplication } from "@/types/booking";
 import type { Venue } from "@/types/venue";
 import type { PreferredVenue } from "@/types/venuePreference";
 
@@ -82,6 +84,10 @@ export default function HirerPage() {
   const [applicationFormError, setApplicationFormError] = useState("");
   const [applicationForm, setApplicationForm] =
     useState<ApplicationFormValues>(emptyApplicationForm);
+  const [bookingHistory, setBookingHistory] = useState<BookingApplication[]>([]);
+  const [isBookingHistoryLoading, setIsBookingHistoryLoading] = useState(false);
+  const [bookingHistoryError, setBookingHistoryError] = useState("");
+  const [hasLoadedBookingHistory, setHasLoadedBookingHistory] = useState(false);
 
   useEffect(() => {
     if (!isAuthReady) {
@@ -256,6 +262,34 @@ export default function HirerPage() {
     }
   }
 
+  async function loadBookingHistory() {
+    if (!currentUser?.accountID) {
+      setBookingHistoryError("Unable to load booking history. Please try again later.");
+      return;
+    }
+
+    try {
+      setIsBookingHistoryLoading(true);
+      setBookingHistoryError("");
+
+      const response = await bookingApi.getHirerBookingHistory(currentUser.accountID);
+      setBookingHistory(response.data.bookings);
+      setHasLoadedBookingHistory(true);
+    } catch {
+      setBookingHistoryError("Unable to load booking history. Please try again later.");
+    } finally {
+      setIsBookingHistoryLoading(false);
+    }
+  }
+
+  function handleShowHistory() {
+    setActiveSection("history");
+
+    if (!hasLoadedBookingHistory) {
+      void loadBookingHistory();
+    }
+  }
+
   function openApplyDialog(venue: Venue) {
     setSelectedVenueForApply(venue);
     setApplicationForm(emptyApplicationForm);
@@ -367,6 +401,7 @@ export default function HirerPage() {
         closable: true,
       });
 
+      void loadBookingHistory();
       closeApplyDialog();
     } catch (error) {
       setApplicationFormError(getBookingErrorMessage(error));
@@ -456,7 +491,7 @@ export default function HirerPage() {
           </Button>
           <Button
             type="button"
-            onClick={() => setActiveSection("history")}
+            onClick={handleShowHistory}
             size="sm"
             borderRadius="md"
             {...sectionButtonStyles("history")}
@@ -608,16 +643,11 @@ export default function HirerPage() {
             </div>
           )
         ) : (
-          <div className="rounded border border-zinc-300 bg-white p-6">
-            <h2 className="text-xl font-semibold text-zinc-950">
-              Booking history
-            </h2>
-            <p className="mt-2 text-sm text-zinc-600">
-              Booking/application history will be restored here after booking
-              storage or backend booking APIs are ready.
-            </p>
-            {/* TODO: Restore BookingHistoryList when booking flow is ready. */}
-          </div>
+          <BookingHistoryList
+            bookings={bookingHistory}
+            isLoading={isBookingHistoryLoading}
+            error={bookingHistoryError}
+          />
         )}
       </section>
 
