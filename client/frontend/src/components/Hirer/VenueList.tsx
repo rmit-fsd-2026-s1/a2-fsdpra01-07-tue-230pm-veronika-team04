@@ -73,6 +73,9 @@ export default function VenueList({
                       size="sm"
                       variant="outline"
                       borderRadius="md"
+                      bg="#095d44"
+                      color="white"
+                      _hover={{ bg: "#074b37" }}
                     >
                       Apply
                     </Button>

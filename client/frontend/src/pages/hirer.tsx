@@ -602,6 +602,7 @@ export default function HirerPage() {
                   onMoveUp={() => handleMovePreferred(index, -1)}
                   onMoveDown={() => handleMovePreferred(index, 1)}
                   onRemove={() => handleRemovePreferred(venue.id)}
+                  onApply={() => openApplyDialog(venue)}
                 />
               ))}
             </div>

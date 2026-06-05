@@ -11,6 +11,7 @@ type PreferredVenueCardProps = {
   onMoveUp: () => void;
   onMoveDown: () => void;
   onRemove: () => void;
+  onApply?: () => void;
 };
 
 export default function PreferredVenueCard({
@@ -21,6 +22,7 @@ export default function PreferredVenueCard({
   onMoveUp,
   onMoveDown,
   onRemove,
+  onApply,
 }: PreferredVenueCardProps) {
   return (
     <VenueCard
@@ -63,6 +65,19 @@ export default function PreferredVenueCard({
             >
               Remove
             </Button>
+            {onApply ? (
+              <Button
+                type="button"
+                onClick={onApply}
+                size="sm"
+                bg="#095d44"
+                color="white"
+                borderRadius="md"
+                _hover={{ bg: "#074b37" }}
+              >
+                Apply
+              </Button>
+            ) : null}
           </div>
         </div>
       }
