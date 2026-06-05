@@ -10,6 +10,7 @@ type VenueListProps = {
   preferredVenueIds?: number[];
   onAddToPreferred?: (venueID: number) => void;
   isAddingPreferred?: boolean;
+  onApply?: (venue: Venue) => void;
 };
 
 export default function VenueList({
@@ -19,6 +20,7 @@ export default function VenueList({
   preferredVenueIds,
   onAddToPreferred,
   isAddingPreferred = false,
+  onApply,
 }: VenueListProps) {
   if (isLoading) {
     return <p className="text-sm text-zinc-600">Loading venues...</p>;
@@ -36,7 +38,8 @@ export default function VenueList({
     <div className="grid gap-6 lg:grid-cols-2 xl:grid-cols-3">
       {venues.map((venue) => {
         const isAdded = preferredVenueIds?.includes(venue.id) || false;
-        const canAddToPreferred = preferredVenueIds && onAddToPreferred;
+        const canAddToPreferred = Boolean(preferredVenueIds && onAddToPreferred);
+        const hasActions = canAddToPreferred || onApply;
 
         return (
           <VenueCard
@@ -44,21 +47,37 @@ export default function VenueList({
             venue={venue}
             useChakraTags
             actions={
-              canAddToPreferred ? (
-                <Button
-                  type="button"
-                  onClick={() => onAddToPreferred(venue.id)}
-                  disabled={isAdded || isAddingPreferred}
-                  size="sm"
-                  bg={isAdded ? "gray.200" : "#095d44"}
-                  color={isAdded ? "gray.500" : "white"}
-                  borderRadius="md"
-                  _hover={{
-                    bg: isAdded ? "gray.200" : "#074b37",
-                  }}
-                >
-                  {isAdded ? "Added" : "Add to Preferences"}
-                </Button>
+              hasActions ? (
+                <div className="flex flex-wrap gap-2">
+                  {canAddToPreferred && onAddToPreferred ? (
+                    <Button
+                      type="button"
+                      onClick={() => onAddToPreferred(venue.id)}
+                      disabled={isAdded || isAddingPreferred}
+                      size="sm"
+                      bg={isAdded ? "gray.200" : "#095d44"}
+                      color={isAdded ? "gray.500" : "white"}
+                      borderRadius="md"
+                      _hover={{
+                        bg: isAdded ? "gray.200" : "#074b37",
+                      }}
+                    >
+                      {isAdded ? "Added" : "Add to Preferences"}
+                    </Button>
+                  ) : null}
+
+                  {onApply ? (
+                    <Button
+                      type="button"
+                      onClick={() => onApply(venue)}
+                      size="sm"
+                      variant="outline"
+                      borderRadius="md"
+                    >
+                      Apply
+                    </Button>
+                  ) : null}
+                </div>
               ) : undefined
             }
           />

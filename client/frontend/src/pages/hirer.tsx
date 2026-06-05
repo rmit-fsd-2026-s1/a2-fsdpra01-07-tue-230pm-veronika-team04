@@ -1,16 +1,62 @@
-import { Button } from "@chakra-ui/react";
+import { Button, Input } from "@chakra-ui/react";
+import axios from "axios";
 import { useRouter } from "next/router";
 import { type FormEvent, useEffect, useState } from "react";
 
 import PreferredVenueCard from "@/components/Hirer/PreferredVenueCard";
 import VenueList from "@/components/Hirer/VenueList";
 import Layout from "@/components/layout/Layout";
+import {
+  DialogBody,
+  DialogCloseTrigger,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogRoot,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Field } from "@/components/ui/field";
+import { toaster } from "@/components/ui/toaster";
 import { useAuth } from "@/context/AuthContext";
+import { bookingApi } from "@/services/bookingApi";
 import { venuePreferenceApi } from "@/services/venuePreferenceApi";
 import { venueApi } from "@/services/venueApi";
 import type { SuitabilityTag } from "@/services/venueApi";
 import type { Venue } from "@/types/venue";
 import type { PreferredVenue } from "@/types/venuePreference";
+
+type ApplicationFormValues = {
+  eventName: string;
+  eventDate: string;
+  eventTime: string;
+  guestCount: string;
+  duration: string;
+};
+
+const emptyApplicationForm: ApplicationFormValues = {
+  eventName: "",
+  eventDate: "",
+  eventTime: "",
+  guestCount: "",
+  duration: "",
+};
+
+function requiredLabel(label: string) {
+  return (
+    <>
+      {label} <span className="text-red-600">*</span>
+    </>
+  );
+}
+
+function getTodayDateText() {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, "0");
+  const day = String(today.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
 
 export default function HirerPage() {
   const router = useRouter();
@@ -30,6 +76,12 @@ export default function HirerPage() {
   const [isPreferredLoading, setIsPreferredLoading] = useState(false);
   const [isPreferenceUpdating, setIsPreferenceUpdating] = useState(false);
   const [preferredError, setPreferredError] = useState("");
+  const [selectedVenueForApply, setSelectedVenueForApply] = useState<Venue | null>(null);
+  const [isApplyDialogOpen, setIsApplyDialogOpen] = useState(false);
+  const [isSubmittingApplication, setIsSubmittingApplication] = useState(false);
+  const [applicationFormError, setApplicationFormError] = useState("");
+  const [applicationForm, setApplicationForm] =
+    useState<ApplicationFormValues>(emptyApplicationForm);
 
   useEffect(() => {
     if (!isAuthReady) {
@@ -204,6 +256,125 @@ export default function HirerPage() {
     }
   }
 
+  function openApplyDialog(venue: Venue) {
+    setSelectedVenueForApply(venue);
+    setApplicationForm(emptyApplicationForm);
+    setApplicationFormError("");
+    setIsApplyDialogOpen(true);
+  }
+
+  function closeApplyDialog() {
+    setIsApplyDialogOpen(false);
+    setSelectedVenueForApply(null);
+    setApplicationForm(emptyApplicationForm);
+    setApplicationFormError("");
+    setIsSubmittingApplication(false);
+  }
+
+  function updateApplicationForm(field: keyof ApplicationFormValues, value: string) {
+    setApplicationForm((current) => ({ ...current, [field]: value }));
+  }
+
+  function validateApplicationForm() {
+    const guestCount = Number(applicationForm.guestCount);
+    const duration = Number(applicationForm.duration);
+
+    if (!selectedVenueForApply) {
+      return "Unable to submit booking request. Please try again later.";
+    }
+
+    if (!applicationForm.eventName.trim()) {
+      return "Event name is required.";
+    }
+
+    if (!applicationForm.eventDate) {
+      return "Event date is required.";
+    }
+
+    if (!applicationForm.eventTime) {
+      return "Event time is required.";
+    }
+
+    if (!Number.isInteger(guestCount) || guestCount <= 0) {
+      return "Guest count must be a positive whole number.";
+    }
+
+    if (!Number.isInteger(duration) || duration <= 0) {
+      return "Duration must be a positive whole number.";
+    }
+
+    const eventDateTime = new Date(
+      `${applicationForm.eventDate}T${applicationForm.eventTime}:00`,
+    );
+
+    if (Number.isNaN(eventDateTime.getTime()) || eventDateTime <= new Date()) {
+      return "Event date and time must be in the future.";
+    }
+
+    if (guestCount > selectedVenueForApply.capacity) {
+      return "Guest count cannot exceed venue capacity.";
+    }
+
+    return "";
+  }
+
+  function getBookingErrorMessage(error: unknown) {
+    if (axios.isAxiosError(error)) {
+      const data = error.response?.data as { message?: string } | undefined;
+
+      if (data?.message) {
+        return data.message;
+      }
+    }
+
+    return "Unable to submit booking request. Please try again later.";
+  }
+
+  async function handleSubmitApplication(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!currentUser?.accountID || !selectedVenueForApply) {
+      setApplicationFormError("Unable to submit booking request. Please try again later.");
+      return;
+    }
+
+    const validationMessage = validateApplicationForm();
+
+    if (validationMessage) {
+      setApplicationFormError(validationMessage);
+      return;
+    }
+
+    try {
+      setIsSubmittingApplication(true);
+      setApplicationFormError("");
+
+      await bookingApi.createBooking({
+        hireAccountID: currentUser.accountID,
+        venueID: selectedVenueForApply.id,
+        eventName: applicationForm.eventName.trim(),
+        eventDate: applicationForm.eventDate,
+        eventTime: applicationForm.eventTime,
+        guestCount: Number(applicationForm.guestCount),
+        duration: Number(applicationForm.duration),
+      });
+
+      toaster.create({
+        title: "Booking request submitted",
+        description: "Your request has been sent to the vendor.",
+        type: "success",
+        duration: 3000,
+        closable: true,
+      });
+
+      closeApplyDialog();
+    } catch (error) {
+      setApplicationFormError(getBookingErrorMessage(error));
+    } finally {
+      setIsSubmittingApplication(false);
+    }
+  }
+
   const navItems = [
     { label: "Home", href: "/" },
     { label: "My Dashboard", href: "/hirer" },
@@ -227,6 +398,7 @@ export default function HirerPage() {
     (a, b) => a.preferenceRank - b.preferenceRank,
   );
   const preferredVenueIds = sortedPreferredVenues.map((venue) => venue.id);
+  const todayDate = getTodayDateText();
 
   if (!isAuthReady) {
     return (
@@ -406,6 +578,7 @@ export default function HirerPage() {
               preferredVenueIds={preferredVenueIds}
               onAddToPreferred={handleAddToPreferred}
               isAddingPreferred={isPreferenceUpdating}
+              onApply={openApplyDialog}
             />
           </div>
         ) : activeSection === "preferred" ? (
@@ -446,6 +619,113 @@ export default function HirerPage() {
           </div>
         )}
       </section>
+
+      <DialogRoot
+        open={isApplyDialogOpen && selectedVenueForApply !== null}
+        onOpenChange={(details) => {
+          if (!details.open) {
+            closeApplyDialog();
+          } else {
+            setIsApplyDialogOpen(true);
+          }
+        }}
+      >
+        <DialogContent>
+          <form onSubmit={handleSubmitApplication}>
+            <DialogHeader>
+              <DialogTitle color="black">Apply for Venue</DialogTitle>
+            </DialogHeader>
+            <DialogCloseTrigger />
+            <DialogBody className="space-y-4">
+              {selectedVenueForApply ? (
+                <div className="rounded border border-zinc-200 bg-zinc-50 p-3 text-sm text-zinc-700">
+                  <p className="font-semibold text-zinc-950">
+                    {selectedVenueForApply.name}
+                  </p>
+                  <p>{selectedVenueForApply.location}</p>
+                  <p>Capacity: {selectedVenueForApply.capacity}</p>
+                </div>
+              ) : null}
+
+              {applicationFormError ? (
+                <p className="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {applicationFormError}
+                </p>
+              ) : null}
+
+              <Field label={requiredLabel("Event name")} color="black">
+                <Input
+                  value={applicationForm.eventName}
+                  onChange={(event) =>
+                    updateApplicationForm("eventName", event.target.value)
+                  }
+                  placeholder="Birthday Party"
+                />
+              </Field>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label={requiredLabel("Event date")} color="black">
+                  <Input
+                    min={todayDate}
+                    type="date"
+                    value={applicationForm.eventDate}
+                    onChange={(event) =>
+                      updateApplicationForm("eventDate", event.target.value)
+                    }
+                  />
+                </Field>
+                <Field label={requiredLabel("Event time")} color="black">
+                  <Input
+                    type="time"
+                    value={applicationForm.eventTime}
+                    onChange={(event) =>
+                      updateApplicationForm("eventTime", event.target.value)
+                    }
+                  />
+                </Field>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label={requiredLabel("Guest count")} color="black">
+                  <Input
+                    min={1}
+                    type="number"
+                    value={applicationForm.guestCount}
+                    onChange={(event) =>
+                      updateApplicationForm("guestCount", event.target.value)
+                    }
+                    placeholder="80"
+                  />
+                </Field>
+                <Field label={requiredLabel("Duration")} color="black">
+                  <Input
+                    min={1}
+                    type="number"
+                    value={applicationForm.duration}
+                    onChange={(event) =>
+                      updateApplicationForm("duration", event.target.value)
+                    }
+                    placeholder="4"
+                  />
+                </Field>
+              </div>
+            </DialogBody>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={closeApplyDialog}>
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                bg="#095d44"
+                color="white"
+                loading={isSubmittingApplication}
+              >
+                Submit Request
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </DialogRoot>
     </Layout>
   );
 }
