@@ -146,20 +146,6 @@ export default function UserProfile() {
   }, [currentUser, isAuthReady]);
 
   useEffect(() => {
-<<<<<<< HEAD
-    if (currentUser?.name) {
-      setDisplayName(currentUser.name);
-    }
-  }, [currentUser]);
-
-
-
-
-  // TODO: This is a bit hacky - Ideally should have an endpoint to fetch the user's uploaded documents instead of relying on localStorage.
-  // Change later to fetch from backend and store in context if needed across multiple pages
-  useEffect(() => {
-=======
->>>>>>> f7810e98de9b177d22226f856ac7251ef819fcc2
     if (currentUser?.email) {
       const stored = getStoredDocuments(currentUser.email);
     if (stored) 
@@ -181,10 +167,6 @@ export default function UserProfile() {
 
 
   useEffect(() => {
-<<<<<<< HEAD
-    console.log("Current User in Profile:", currentUser);
-  }, [currentUser]);
-=======
   console.log("Current User in Profile:", currentUser);
 }, [currentUser]);
 
@@ -220,7 +202,6 @@ export default function UserProfile() {
   }, [currentUser]);
 
 
->>>>>>> f7810e98de9b177d22226f856ac7251ef819fcc2
 
 
   async function handleUpdateName(e: React.FormEvent<HTMLElement>) {

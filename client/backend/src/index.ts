@@ -8,6 +8,7 @@ import profileRoutes from "./routes/profileRoutes";
 import venuePreferenceRoutes from "./routes/venuePreferenceRoutes";
 import venueRoutes from "./routes/venueRoutes";
 import applicationRoutes from "./routes/applicationRoutes";
+import blockedSlotRoutes from "./routes/blockedSlotRoutes";
 
 dotenv.config();
 
