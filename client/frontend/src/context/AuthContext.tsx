@@ -52,6 +52,7 @@ function mapBackendUser(user: BackendAuthUser): CurrentUser {
     email: user.email,
     phone: user.phone ?? "",
     role: user.role,
+    createdAt: user.createdAt,
   };
 }
 

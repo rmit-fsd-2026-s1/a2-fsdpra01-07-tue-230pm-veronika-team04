@@ -66,15 +66,15 @@ export default function VenueCard({
 
         {!isSummary ? (
           <div className="grid gap-2 text-sm text-zinc-700 sm:grid-cols-2">
-            <p>
+            <div>
               <span className="font-medium text-zinc-900">Capacity:</span>{" "}
               {venue.capacity}
-            </p>
-            <p>
+            </div>
+            <div>
               <span className="font-medium text-zinc-900">Price:</span>{" "}
               ${venue.price.toLocaleString()}
-            </p>
-            <p>
+            </div>
+            <div>
               <span className="font-medium text-zinc-900">Best for:</span>{" "}
               {useChakraTags ? (
                 <Tag colorPalette="teal" size="sm" variant="subtle">
@@ -83,7 +83,7 @@ export default function VenueCard({
               ) : (
                 venue.recommendedSuitability
               )}
-            </p>
+            </div>
           </div>
         ) : null}
 

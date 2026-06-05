@@ -68,6 +68,7 @@ export async function signUp(req: Request, res: Response): Promise<void> {
         phone: savedUser.phone,
         role: savedUser.role,
         accountID: savedHirerAccount.hireAccountID,
+        createdAt: savedUser.createdAt,
       },
     });
   } catch (error) {
@@ -140,6 +141,7 @@ export async function login(req: Request, res: Response): Promise<void> {
         phone: user.phone,
         role: user.role,
         accountID,
+        createdAt: user.createdAt,
       },
     });
   } catch (error) {

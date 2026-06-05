@@ -136,7 +136,7 @@ export default function UserProfile() {
     }
 
     if (!currentUser) {
-      router.push("/sign_in");
+      router.push("/login");
     }
   }, [currentUser, isAuthReady]);
 
@@ -162,6 +162,10 @@ export default function UserProfile() {
     if (documents.businessRegistrationCertificate) score += 1;
     calcCredibility(score);
   }, [documents]);
+
+  useEffect(() => {
+  console.log("Current User in Profile:", currentUser);
+}, [currentUser]);
 
 
 
@@ -349,7 +353,7 @@ export default function UserProfile() {
         },
       ]
     : [
-        { label: "Log In", href: "/sign_in" },
+        { label: "Log In", href: "/login" },
         { label: "Join", href: "/sign_up" },
       ];
 
@@ -440,7 +444,13 @@ export default function UserProfile() {
           <InfoRow
             icon={FaInfo}
             label="Member Since"
-            value={currentUser?.createdAt ?? "Unknown"}
+            value={
+              currentUser?.createdAt 
+                ? new Date(currentUser.createdAt).toLocaleDateString(undefined, { 
+                    year: 'numeric', month: 'long', day: 'numeric' 
+                  }) 
+                : "Unknown"
+            }
           />
           {/* Info rows */}
 

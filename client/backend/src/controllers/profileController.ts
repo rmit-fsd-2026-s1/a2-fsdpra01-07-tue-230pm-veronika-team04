@@ -75,7 +75,7 @@ export async function getProfile(req: Request, res: Response): Promise<void> {
         email: user.email,
         phone: user.phone,
         role: user.role,
-        dateOfJoining: user.createdAt,
+        createdAt: user.createdAt,
         accountID,
         reputation,
         complianceScore,
@@ -130,7 +130,7 @@ export async function updateProfile(req: Request, res: Response): Promise<void> 
         email: savedUser.email,
         phone: savedUser.phone,
         role: savedUser.role,
-        dateOfJoining: savedUser.createdAt,
+        createdAt: savedUser.createdAt,
       },
     });
   } catch (error) {
@@ -181,7 +181,7 @@ export async function updateEmail(req: Request, res: Response): Promise<void> {
         email: savedUser.email,
         phone: savedUser.phone,
         role: savedUser.role,
-        dateOfJoining: savedUser.createdAt,
+        createdAt: savedUser.createdAt,
       },
     });
   } catch (error) {
