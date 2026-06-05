@@ -26,9 +26,7 @@ export default function VenueCard({
   const statusColor =
     venue.status === "available"
       ? "green"
-      : venue.status === "booked"
-        ? "orange"
-        : "red";
+      : "red";
 
   return (
     <article className="overflow-hidden rounded-3xl border border-black/10 bg-white shadow-sm">
