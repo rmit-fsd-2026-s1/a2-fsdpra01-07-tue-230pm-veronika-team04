@@ -224,6 +224,8 @@ export default function HirerPage() {
                   />
                 </div>
 
+                {/* Suitability tag should be static, assign by ourselves. 
+                type need to be selected, get suitability tag from database */}
                 <div>
                   <label
                     className="mb-1 block text-sm text-zinc-900"
