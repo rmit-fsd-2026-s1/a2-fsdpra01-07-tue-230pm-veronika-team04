@@ -11,6 +11,11 @@ type VenueResponse = {
   venue: Venue;
 };
 
+export type SuitabilityTag = {
+  tagID: number;
+  recommendType: string;
+};
+
 export type CreateVenuePayload = {
   vendorAccountID: number;
   name: string;
@@ -39,6 +44,10 @@ function cleanFilters(filters: VenueSearchFilters) {
 
 export const venueApi = {
   getAllVenues: () => apiClient.get<VenueListResponse>("/venues"),
+  getSuitabilityTags: () =>
+    apiClient.get<{ message: string; tags: SuitabilityTag[] }>(
+      "/venues/suitability-tags",
+    ),
   searchVenues: (filters: VenueSearchFilters) =>
     apiClient.get<VenueListResponse>("/venues/search", {
       params: cleanFilters(filters),

@@ -3,6 +3,7 @@ import {
   createVenue,
   updateVenue,
   getAllVenues,
+  getSuitabilityTags,
   searchVenues,
   getVenueByVendorId,
   deleteVenue
@@ -10,6 +11,7 @@ import {
 
 const router = Router();
 
+router.get("/suitability-tags", getSuitabilityTags);
 router.get("/search", searchVenues);
 // router.get("/:venueID", getVenueByID);
 router.post("/", createVenue);

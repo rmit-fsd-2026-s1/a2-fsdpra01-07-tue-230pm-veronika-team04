@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { AppDataSource } from "../data-source";
+import { SuitabilityTag } from "../entity/SuitabilityTag";
 import { Venue } from "../entity/Venue";
 
 async function getVenuesFromDatabase() {
@@ -297,6 +298,31 @@ export async function deleteVenue(req: Request, res: Response): Promise<void> {
 //     });
 //   }
 // }
+
+export async function getSuitabilityTags(
+  _req: Request,
+  res: Response,
+): Promise<void> {
+  try {
+    const suitabilityTagRepository = AppDataSource.getRepository(SuitabilityTag);
+
+    const tags = await suitabilityTagRepository.find({
+      order: {
+        recommendType: "ASC",
+      },
+    });
+
+    res.status(200).json({
+      message: "Suitability tags retrieved successfully",
+      tags,
+    });
+  } catch (error) {
+    console.error("Get suitability tags failed:", error);
+    res.status(500).json({
+      message: "Something went wrong. Please try again later.",
+    });
+  }
+}
 
 export async function searchVenues(req: Request,res: Response,): Promise<void> {
   try {

@@ -6,6 +6,7 @@ import VenueList from "@/components/Hirer/VenueList";
 import Layout from "@/components/layout/Layout";
 import { useAuth } from "@/context/AuthContext";
 import { venueApi } from "@/services/venueApi";
+import type { SuitabilityTag } from "@/services/venueApi";
 import type { Venue } from "@/types/venue";
 
 export default function HirerPage() {
@@ -19,6 +20,7 @@ export default function HirerPage() {
   const [location, setLocation] = useState("");
   const [capacity, setCapacity] = useState("");
   const [suitability, setSuitability] = useState("");
+  const [suitabilityTags, setSuitabilityTags] = useState<SuitabilityTag[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -38,6 +40,7 @@ export default function HirerPage() {
     }
 
     loadAllVenues();
+    loadSuitabilityTags();
   }, [currentUser, isAuthReady]);
 
   async function loadAllVenues() {
@@ -82,6 +85,16 @@ export default function HirerPage() {
     setCapacity("");
     setSuitability("");
     await loadAllVenues();
+  }
+
+  async function loadSuitabilityTags() {
+    try {
+      const response = await venueApi.getSuitabilityTags();
+      setSuitabilityTags(response.data.tags);
+    } catch (error) {
+      console.error("Unable to load suitability tags:", error);
+      setSuitabilityTags([]);
+    }
   }
 
   const navItems = [
@@ -224,8 +237,6 @@ export default function HirerPage() {
                   />
                 </div>
 
-                {/* Suitability tag should be static, assign by ourselves. 
-                type need to be selected, get suitability tag from database */}
                 <div>
                   <label
                     className="mb-1 block text-sm text-zinc-900"
@@ -233,14 +244,19 @@ export default function HirerPage() {
                   >
                     Suitability
                   </label>
-                  <input
+                  <select
                     id="suitability"
-                    type="text"
                     value={suitability}
                     onChange={(event) => setSuitability(event.target.value)}
-                    placeholder="wedding"
                     className="w-full rounded border border-zinc-500 px-3 py-2 text-sm"
-                  />
+                  >
+                    <option value="">All</option>
+                    {suitabilityTags.map((tag) => (
+                      <option key={tag.tagID} value={tag.recommendType}>
+                        {tag.recommendType}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
