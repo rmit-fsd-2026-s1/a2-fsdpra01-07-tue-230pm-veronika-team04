@@ -7,6 +7,9 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  Legend,
+  Pie,
+  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -30,13 +33,21 @@ import type { BookingApplication } from "@/types/booking";
 import { blockedSlotApi } from "@/services/blockedSlotApi";
 import type { BlockedSlot } from "@/services/blockedSlotApi";
 import { reportApi } from "@/services/reportApi";
-import type { ReportPeriod, VendorReport } from "@/types/report";
+import type {
+  ActiveHirerItem,
+  CombinedTallyItem,
+  VendorReport,
+} from "@/types/report";
 
-const reportPeriodOptions: { label: string; value: ReportPeriod }[] = [
-  { label: "This week", value: "thisWeek" },
-  { label: "This month", value: "thisMonth" },
-  { label: "Last month", value: "lastMonth" },
-  { label: "All time", value: "allTime" },
+const chartColors = [
+  "#095d44",
+  "#2563eb",
+  "#f97316",
+  "#7c3aed",
+  "#dc2626",
+  "#0891b2",
+  "#be123c",
+  "#4b5563",
 ];
 
 const emptyVenueForm = {
@@ -72,8 +83,33 @@ function getApplicationStatusColor(status: BookingApplication["status"]) {
   return "yellow";
 }
 
-function isReportPeriod(value: string): value is ReportPeriod {
-  return reportPeriodOptions.some((option) => option.value === value);
+function buildStackedTallyData(combinedTallies: CombinedTallyItem[]) {
+  const venueNames = Array.from(
+    new Set(combinedTallies.map((item) => item.venueName)),
+  );
+  const rowMap = new Map<string, Record<string, string | number>>();
+
+  combinedTallies.forEach((item) => {
+    const row = rowMap.get(item.hirerName) || { hirerName: item.hirerName };
+    row[item.venueName] = item.tally;
+    rowMap.set(item.hirerName, row);
+  });
+
+  const chartData = Array.from(rowMap.values()).map((row) => {
+    venueNames.forEach((venueName) => {
+      if (row[venueName] === undefined) {
+        row[venueName] = 0;
+      }
+    });
+
+    return row;
+  });
+
+  return { chartData, venueNames };
+}
+
+function formatBookingCount(tally: number) {
+  return tally === 1 ? "1 booking" : `${tally} bookings`;
 }
 
 export default function VendorPage() {
@@ -132,7 +168,6 @@ export default function VendorPage() {
   const [blockFormError, setBlockFormError] = useState("");
 
   const [applicationSortOrder, setApplicationSortOrder] = useState<"highToLow" | "lowToHigh" | null>(null);
-  const [reportPeriod, setReportPeriod] = useState<ReportPeriod>("thisMonth");
   const [reportData, setReportData] = useState<VendorReport | null>(null);
   const [isReportLoading, setIsReportLoading] = useState(false);
   const [reportError, setReportError] = useState("");
@@ -215,6 +250,8 @@ export default function VendorPage() {
     return () => { isMounted = false; };
   }, [currentUserRole, isAuthReady, vendorAccountID]);
 
+  // TODO: Use reportPeriod for CHANGE 3 utilisation line chart.
+  // CHANGE 2 charts use allTime data from reportApi.
   useEffect(() => {
     if (
       !isAuthReady ||
@@ -233,7 +270,7 @@ export default function VendorPage() {
       setReportError("");
 
       try {
-        const response = await reportApi.getVendorReport(accountID, reportPeriod);
+        const response = await reportApi.getVendorReport(accountID);
 
         if (isMounted) {
           setReportData(response.data.report);
@@ -261,7 +298,6 @@ export default function VendorPage() {
     activeSection,
     currentUserRole,
     isAuthReady,
-    reportPeriod,
     vendorAccountID,
   ]);
   
@@ -276,14 +312,18 @@ export default function VendorPage() {
       label: `${item.venueName} - ${item.hirerName}`,
       tally: item.tally,
     })) ?? [];
-
-  function handleReportPeriodChange(value: string) {
-    if (!isReportPeriod(value)) {
-      return;
-    }
-
-    setReportPeriod(value);
-  }
+  const combinedTallies = reportData?.combinedTallies ?? [];
+  const activeHirers: ActiveHirerItem[] = reportData?.activeHirers ?? [];
+  const activeHirerPieData = activeHirers.map((hirer, index) => ({
+    ...hirer,
+    fill: chartColors[index % chartColors.length],
+  }));
+  const { chartData: stackedTallyData, venueNames: stackedVenueNames } =
+    buildStackedTallyData(combinedTallies);
+  const hasChange2ReportData =
+    talliesByVenueChartData.length > 0 ||
+    stackedTallyData.length > 0 ||
+    activeHirers.length > 0;
 
   // Refresh the vendor's venue list after create, update, or delete.
   async function refreshVendorVenues(accountID: number) {
@@ -1498,74 +1538,167 @@ async function handleCreateBlockedSlot(e: FormEvent<HTMLFormElement>) {
         {/* Visual Summary */}
         {activeSection === "visualSummary" && (
           <section className="space-y-4">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <h2 className="text-xl font-semibold text-zinc-950">
-                  Visual Summary
-                </h2>
-                <p className="mt-1 text-sm text-zinc-600">
-                  Accepted booking tallies for hirers across your venues.
-                </p>
-              </div>
-
-              <select
-                value={reportPeriod}
-                onChange={(event) => handleReportPeriodChange(event.target.value)}
-                className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-[#095d44]"
-              >
-                {reportPeriodOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
-              <h3 className="text-lg font-semibold text-zinc-950">
-                Hirer tallies by venue
-              </h3>
+            <div>
+              <h2 className="text-xl font-semibold text-zinc-950">
+                Visual Summary
+              </h2>
               <p className="mt-1 text-sm text-zinc-600">
-                Counts accepted bookings only.
+                Accepted booking report for your venues.
               </p>
-
-              <div className="mt-5">
-                {isReportLoading ? (
-                  <p className="text-sm text-zinc-600">
-                    Loading visual summary...
-                  </p>
-                ) : reportError ? (
-                  <p className="text-sm text-red-600">
-                    {reportError}
-                  </p>
-                ) : talliesByVenueChartData.length === 0 ? (
-                  <p className="text-sm text-zinc-600">
-                    No report data available for this period.
-                  </p>
-                ) : (
-                  <div className="h-[180px] w-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart
-                        data={talliesByVenueChartData}
-                        layout="vertical"
-                        margin={{ left: 16, right: 24 }}
-                      >
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis type="number" allowDecimals={false} />
-                        <YAxis
-                          type="category"
-                          dataKey="label"
-                          width={180}
-                          tick={{ fontSize: 12 }}
-                        />
-                        <Tooltip />
-                        <Bar dataKey="tally" fill="#095d44" />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                )}
-              </div>
+              <p className="mt-1 text-xs font-medium text-zinc-500">
+                Only accepted bookings are counted in these charts.
+              </p>
             </div>
+
+            {isReportLoading ? (
+              <p className="text-sm text-zinc-600">
+                Loading visual summary...
+              </p>
+            ) : reportError ? (
+              <p className="text-sm text-red-600">
+                {reportError}
+              </p>
+            ) : !hasChange2ReportData ? (
+              <p className="rounded-lg border border-zinc-200 bg-white p-5 text-sm text-zinc-600 shadow-sm">
+                No report data available yet.
+              </p>
+            ) : (
+              <>
+                <div className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
+                  <h3 className="text-lg font-semibold text-zinc-950">
+                    Hirer tallies by venue
+                  </h3>
+                  <p className="mt-1 text-sm text-zinc-600">
+                    Shows accepted booking tallies for each hirer under each venue.
+                  </p>
+
+                  <div className="mt-5">
+                    {talliesByVenueChartData.length === 0 ? (
+                      <p className="text-sm text-zinc-600">
+                        No tally data available.
+                      </p>
+                    ) : (
+                      <div className="h-[360px] w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart
+                            data={talliesByVenueChartData}
+                            layout="vertical"
+                            margin={{ left: 15, right: 20, top: 15, bottom: 15 }}
+                          >
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis type="number" allowDecimals={false} />
+                            <YAxis
+                              type="category"
+                              dataKey="label"
+                              width={220}
+                              tick={{ fontSize: 12 }}
+                            />
+                            <Tooltip />
+                            <Bar dataKey="tally" fill="#095d44" barSize={38} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
+                  <h3 className="text-lg font-semibold text-zinc-950">
+                    Combined hirer tallies across venues
+                  </h3>
+                  <p className="mt-1 text-sm text-zinc-600">
+                    Shows each hirer&apos;s accepted booking totals split by venue.
+                  </p>
+
+                  <div className="mt-5">
+                    {stackedTallyData.length === 0 ? (
+                      <p className="text-sm text-zinc-600">
+                        No combined tally data available.
+                      </p>
+                    ) : (
+                      <div className="h-[260px] w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart
+                            data={stackedTallyData}
+                            margin={{ left: 8, right: 20, top: 8, bottom: 8 }}
+                          >
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="hirerName" />
+                            <YAxis allowDecimals={false} />
+                            <Tooltip />
+                            <Legend />
+                            {stackedVenueNames.map((venueName, index) => (
+                              <Bar
+                                key={venueName}
+                                dataKey={venueName}
+                                stackId="tally"
+                                fill={chartColors[index % chartColors.length]}
+                                barSize={38}
+                              />
+                            ))}
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
+                  <h3 className="text-lg font-semibold text-zinc-950">
+                    Active hirers
+                  </h3>
+                  <p className="mt-1 text-sm text-zinc-600">
+                    Shows accepted booking distribution among active hirers.
+                  </p>
+
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-md border border-zinc-200 bg-zinc-50 p-3">
+                      <p className="text-sm font-medium text-zinc-950">
+                        Most active
+                      </p>
+                      <p className="mt-1 text-sm text-zinc-600">
+                        {reportData?.mostActiveHirer
+                          ? `${reportData.mostActiveHirer.hirerName} - ${formatBookingCount(reportData.mostActiveHirer.tally)}`
+                          : "Not available"}
+                      </p>
+                    </div>
+                    <div className="rounded-md border border-zinc-200 bg-zinc-50 p-3">
+                      <p className="text-sm font-medium text-zinc-950">
+                        Least active
+                      </p>
+                      <p className="mt-1 text-sm text-zinc-600">
+                        {reportData?.leastActiveHirer
+                          ? `${reportData.leastActiveHirer.hirerName} - ${formatBookingCount(reportData.leastActiveHirer.tally)}`
+                          : "Not available"}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-5">
+                    {activeHirers.length === 0 ? (
+                      <p className="text-sm text-zinc-600">
+                        No active hirer data available.
+                      </p>
+                    ) : (
+                      <div className="h-[240px] w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie
+                              data={activeHirerPieData}
+                              dataKey="tally"
+                              nameKey="hirerName"
+                              outerRadius={78}
+                            />
+                            <Tooltip />
+                            <Legend />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
           </section>
         )}
         {/* Visual Summary */}

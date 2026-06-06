@@ -11,13 +11,24 @@ export type TalliesByVenueItem = {
   tally: number;
 };
 
+export type CombinedTallyItem = {
+  hirerName: string;
+  venueName: string;
+  tally: number;
+};
+
+export type ActiveHirerItem = {
+  hirerName: string;
+  tally: number;
+};
+
 export type VendorReport = {
   period: ReportPeriod;
   talliesByVenue: TalliesByVenueItem[];
-  combinedTallies: unknown[];
-  activeHirers: unknown[];
-  mostActiveHirer: unknown | null;
-  leastActiveHirer: unknown | null;
+  combinedTallies: CombinedTallyItem[];
+  activeHirers: ActiveHirerItem[];
+  mostActiveHirer: ActiveHirerItem | null;
+  leastActiveHirer: ActiveHirerItem | null;
   utilisation: unknown[];
 };
 
