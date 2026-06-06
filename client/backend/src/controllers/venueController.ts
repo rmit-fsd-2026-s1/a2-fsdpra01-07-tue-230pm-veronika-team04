@@ -1,7 +1,11 @@
 import { Request, Response } from "express";
+import fs from "fs/promises";
+import path from "path";
 import { AppDataSource } from "../data-source";
 import { SuitabilityTag } from "../entity/SuitabilityTag";
 import { Venue } from "../entity/Venue";
+
+const uploadedVenueImagePrefix = "/uploads/venues/";
 
 async function getVenuesFromDatabase() {
   const venueRepository = AppDataSource.getRepository(Venue);
@@ -62,6 +66,55 @@ function mapVenue(venue: Venue) {
 
 function getRequiredString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function toPositiveInteger(value: unknown): number | null {
+  const numberValue = Number(value);
+
+  if (!Number.isInteger(numberValue) || numberValue <= 0) {
+    return null;
+  }
+
+  return numberValue;
+}
+
+function isUploadedVenueImage(
+  image: string | null | undefined,
+): image is string {
+  return typeof image === "string" && image.startsWith(uploadedVenueImagePrefix);
+}
+
+async function deleteVenueImageFile(image: string | null | undefined) {
+  if (!isUploadedVenueImage(image)) {
+    return;
+  }
+
+  try {
+    const imagePath = image.replace(/^\//, "");
+    await fs.unlink(path.join(process.cwd(), imagePath));
+  } catch (error) {
+    const fileError = error as NodeJS.ErrnoException;
+
+    if (fileError.code !== "ENOENT") {
+      console.error("Delete venue image file failed:", error);
+    }
+  }
+}
+
+async function findVenueWithRelations(venueID: number) {
+  const venueRepository = AppDataSource.getRepository(Venue);
+
+  return venueRepository.findOne({
+    where: { venueID },
+    relations: {
+      vendorAccount: {
+        user: true,
+      },
+      recommendedSuitabilities: {
+        suitabilityTag: true,
+      },
+    },
+  });
 }
 
 export async function getAllVenues(_req: Request, res: Response,): Promise<void> {
@@ -166,6 +219,9 @@ export async function updateVenue(req: Request, res: Response): Promise<void> {
     const venueName = getRequiredString(req.body.name || req.body.venueName);
     const location = getRequiredString(req.body.location);
     const description = getRequiredString(req.body.description);
+    const hasImageField =
+      Object.prototype.hasOwnProperty.call(req.body, "image") ||
+      Object.prototype.hasOwnProperty.call(req.body, "imageUrl");
     const imageUrl = getRequiredString(req.body.image || req.body.imageUrl);
     const capacity = Number(req.body.capacity);
     const price = Number(req.body.price);
@@ -205,7 +261,14 @@ export async function updateVenue(req: Request, res: Response): Promise<void> {
     existingVenue.capacity = capacity;
     existingVenue.price = price.toFixed(2);
     existingVenue.description = description || null;
-    existingVenue.imageUrl = imageUrl || null;
+
+    if (hasImageField) {
+      if (imageUrl !== existingVenue.imageUrl) {
+        await deleteVenueImageFile(existingVenue.imageUrl);
+      }
+
+      existingVenue.imageUrl = imageUrl || null;
+    }
 
     const updatedVenue = await venueRepository.save(existingVenue);
 
@@ -227,12 +290,80 @@ export async function updateVenue(req: Request, res: Response): Promise<void> {
   }
 }
 
+export async function uploadVenueImageForVenue(
+  req: Request,
+  res: Response,
+): Promise<void> {
+  try {
+    const venueID = toPositiveInteger(req.params.venueID);
+    const vendorAccountID = toPositiveInteger(req.body.vendorAccountID);
+
+    if (!venueID) {
+      res.status(400).json({ message: "Invalid venue ID" });
+      return;
+    }
+
+    if (!vendorAccountID) {
+      res.status(400).json({ message: "Invalid vendor account ID" });
+      return;
+    }
+
+    if (!req.file) {
+      res.status(400).json({ message: "No image uploaded" });
+      return;
+    }
+
+    const venueRepository = AppDataSource.getRepository(Venue);
+    const venue = await venueRepository.findOneBy({ venueID });
+
+    if (!venue) {
+      await fs.unlink(req.file.path);
+      res.status(404).json({ message: "Venue not found" });
+      return;
+    }
+
+    if (venue.vendorAccountID !== vendorAccountID) {
+      await fs.unlink(req.file.path);
+      res.status(403).json({ message: "You can only update your own venues" });
+      return;
+    }
+
+    await deleteVenueImageFile(venue.imageUrl);
+
+    venue.imageUrl = `${uploadedVenueImagePrefix}${req.file.filename}`;
+
+    const savedVenue = await venueRepository.save(venue);
+    const venueWithRelations = await findVenueWithRelations(savedVenue.venueID);
+
+    res.status(200).json({
+      message: "Venue image uploaded successfully",
+      venue: mapVenue(venueWithRelations || savedVenue),
+    });
+  } catch (error) {
+    console.error("Upload venue image failed:", error);
+    res.status(500).json({
+      message: "Something went wrong. Please try again later.",
+    });
+  }
+}
+
 export async function deleteVenue(req: Request, res: Response): Promise<void> {
   try {
     const venueID = Number(req.params.venueID);
+    const vendorAccountID = req.body.vendorAccountID
+      ? Number(req.body.vendorAccountID)
+      : null;
 
     if (!Number.isInteger(venueID) || venueID <= 0) {
       res.status(400).json({ message: "Invalid venue ID" });
+      return;
+    }
+
+    if (
+      vendorAccountID !== null &&
+      (!Number.isInteger(vendorAccountID) || vendorAccountID <= 0)
+    ) {
+      res.status(400).json({ message: "Invalid vendor account ID" });
       return;
     }
 
@@ -244,6 +375,15 @@ export async function deleteVenue(req: Request, res: Response): Promise<void> {
       return;
     }
 
+    if (
+      vendorAccountID !== null &&
+      existingVenue.vendorAccountID !== vendorAccountID
+    ) {
+      res.status(403).json({ message: "You can only delete your own venues" });
+      return;
+    }
+
+    await deleteVenueImageFile(existingVenue.imageUrl);
     await venueRepository.remove(existingVenue);
 
     res.status(200).json({ message: "Venue deleted successfully" });

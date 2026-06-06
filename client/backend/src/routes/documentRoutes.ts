@@ -7,7 +7,7 @@ import {
   updateApplyAsBusiness,
   uploadDocument,
 } from "../controllers/documentController";
-import { upload } from "../config/multerconfig";
+import { upload } from "../config/multerConfig";
 
 const router = Router();
 

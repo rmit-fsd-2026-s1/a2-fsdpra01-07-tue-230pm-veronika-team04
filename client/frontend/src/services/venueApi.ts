@@ -23,7 +23,6 @@ export type CreateVenuePayload = {
   capacity: number;
   price: number;
   description?: string;
-  image?: string;
 };
 
 export type VenueSearchFilters = {
@@ -56,7 +55,25 @@ export const venueApi = {
     apiClient.get<VenueListResponse>(`/venues/vendor/${vendorId}`),
   createVenue: (payload: CreateVenuePayload) =>
     apiClient.post<VenueResponse>("/venues", payload),
+  uploadVenueImage: (
+    venueID: number,
+    vendorAccountID: number,
+    file: File,
+  ) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("vendorAccountID", String(vendorAccountID));
+
+    return apiClient.post<VenueResponse>(
+      `/venues/${venueID}/image`,
+      formData,
+      { headers: { "Content-Type": "multipart/form-data" } },
+    );
+  },
   updateVenue: (venueId: string | number, payload: Partial<CreateVenuePayload>) =>
     apiClient.put<VenueResponse>(`/venues/${venueId}`, payload),
-  deleteVenue: (venueId: string | number) => apiClient.delete<{ message: string }>(`/venues/${venueId}`),
+  deleteVenue: (venueId: string | number, vendorAccountID?: number) =>
+    apiClient.delete<{ message: string }>(`/venues/${venueId}`, {
+      data: vendorAccountID ? { vendorAccountID } : undefined,
+    }),
 };
