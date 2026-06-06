@@ -36,6 +36,12 @@ type UtilisationItem = {
   totalVenueCount: number;
 };
 
+type ActiveHirerReport = {
+  activeHirers: ActiveHirerItem[];
+  mostActiveHirer: ActiveHirerItem | null;
+  leastActiveHirer: ActiveHirerItem | null;
+};
+
 const allowedPeriods: ReportPeriod[] = [
   "thisWeek",
   "thisMonth",
@@ -242,7 +248,7 @@ function buildCombinedTallies(bookings: Booking[]): CombinedTallyItem[] {
 }
 
 // Builds data for the pie chart and finds the most/least active hirers.
-function buildActiveHirers(bookings: Booking[]) {
+function buildActiveHirers(bookings: Booking[]): ActiveHirerReport {
   const tallyMap = new Map<string, ActiveHirerItem>();
 
   bookings.forEach((booking) => {
@@ -336,20 +342,163 @@ function buildUtilisation(
     });
 }
 
-// Builds an empty report when the vendor has no venues.
-function buildEmptyReport(period: ReportPeriod) {
+// Builds an empty summary report when the vendor has no venues.
+function buildEmptySummaryReport() {
   return {
-    period,
     talliesByVenue: [],
     combinedTallies: [],
     activeHirers: [],
     mostActiveHirer: null,
     leastActiveHirer: null,
+  };
+}
+
+// Builds an empty utilisation report when the vendor has no venues.
+function buildEmptyUtilisationReport(period: ReportPeriod) {
+  return {
+    period,
     utilisation: [],
   };
 }
 
-// Gets all visual summary data for one vendor from accepted bookings.
+async function loadVendorVenues(vendorAccountID: number): Promise<Venue[] | null> {
+  const vendorAccountRepository = AppDataSource.getRepository(VendorAccount);
+  const vendorAccount = await vendorAccountRepository.findOneBy({
+    vendorAccountID,
+  });
+
+  if (!vendorAccount) {
+    return null;
+  }
+
+  const venueRepository = AppDataSource.getRepository(Venue);
+
+  return venueRepository.findBy({ vendorAccountID });
+}
+
+async function loadAcceptedBookings(venueIDs: number[]): Promise<Booking[]> {
+  const bookingRepository = AppDataSource.getRepository(Booking);
+
+  return bookingRepository
+    .createQueryBuilder("booking")
+    .leftJoinAndSelect("booking.venue", "venue")
+    .leftJoinAndSelect("booking.hirerAccount", "hirerAccount")
+    .leftJoinAndSelect("hirerAccount.user", "user")
+    .where("booking.venueID IN (:...venueIDs)", { venueIDs })
+    .andWhere("booking.status = :status", { status: "Accepted" })
+    .orderBy("booking.eventDate", "ASC")
+    .getMany();
+}
+
+// CHANGE 2: all-time accepted booking tallies for the vendor's venues.
+export async function getVendorSummaryReport(
+  req: Request,
+  res: Response,
+): Promise<void> {
+  try {
+    const vendorAccountID = parsePositiveInteger(req.params.vendorAccountID);
+
+    if (!vendorAccountID) {
+      res.status(400).json({ message: "Invalid vendorAccountID" });
+      return;
+    }
+
+    const venues = await loadVendorVenues(vendorAccountID);
+
+    if (!venues) {
+      res.status(404).json({ message: "Vendor account not found" });
+      return;
+    }
+
+    const venueIDs = venues.map((venue) => venue.venueID);
+
+    if (venueIDs.length === 0) {
+      res.status(200).json({
+        message: "Vendor summary report retrieved successfully",
+        report: buildEmptySummaryReport(),
+      });
+      return;
+    }
+
+    const bookings = await loadAcceptedBookings(venueIDs);
+    const activeHirerReport = buildActiveHirers(bookings);
+
+    res.status(200).json({
+      message: "Vendor summary report retrieved successfully",
+      report: {
+        talliesByVenue: buildTalliesByVenue(bookings),
+        combinedTallies: buildCombinedTallies(bookings),
+        activeHirers: activeHirerReport.activeHirers,
+        mostActiveHirer: activeHirerReport.mostActiveHirer,
+        leastActiveHirer: activeHirerReport.leastActiveHirer,
+      },
+    });
+  } catch (error) {
+    console.error("Get vendor summary report failed:", error);
+    res.status(500).json({
+      message: "Something went wrong. Please try again later.",
+    });
+  }
+}
+
+// CHANGE 3: period-filtered venue utilisation line chart data.
+export async function getUtilisationReport(
+  req: Request,
+  res: Response,
+): Promise<void> {
+  try {
+    const vendorAccountID = parsePositiveInteger(req.params.vendorAccountID);
+    const period = getReportPeriod(req.query.period);
+
+    if (!vendorAccountID) {
+      res.status(400).json({ message: "Invalid vendorAccountID" });
+      return;
+    }
+
+    if (!period) {
+      res.status(400).json({ message: "Invalid report period" });
+      return;
+    }
+
+    const venues = await loadVendorVenues(vendorAccountID);
+
+    if (!venues) {
+      res.status(404).json({ message: "Vendor account not found" });
+      return;
+    }
+
+    const venueIDs = venues.map((venue) => venue.venueID);
+
+    if (venueIDs.length === 0) {
+      res.status(200).json({
+        message: "Vendor utilisation report retrieved successfully",
+        report: buildEmptyUtilisationReport(period),
+      });
+      return;
+    }
+
+    const bookings = await loadAcceptedBookings(venueIDs);
+    const periodRange = getPeriodRange(period);
+    const filteredBookings = bookings.filter((booking) =>
+      isDateInRange(booking.eventDate, periodRange),
+    );
+
+    res.status(200).json({
+      message: "Vendor utilisation report retrieved successfully",
+      report: {
+        period,
+        utilisation: buildUtilisation(filteredBookings, venues.length),
+      },
+    });
+  } catch (error) {
+    console.error("Get vendor utilisation report failed:", error);
+    res.status(500).json({
+      message: "Something went wrong. Please try again later.",
+    });
+  }
+}
+
+// Old combined endpoint kept so older frontend/Postman tests do not break.
 export async function getVendorReport(req: Request, res: Response): Promise<void> {
   try {
     const vendorAccountID = parsePositiveInteger(req.params.vendorAccountID);
@@ -365,39 +514,27 @@ export async function getVendorReport(req: Request, res: Response): Promise<void
       return;
     }
 
-    const vendorAccountRepository = AppDataSource.getRepository(VendorAccount);
-    const vendorAccount = await vendorAccountRepository.findOneBy({
-      vendorAccountID,
-    });
+    const venues = await loadVendorVenues(vendorAccountID);
 
-    if (!vendorAccount) {
+    if (!venues) {
       res.status(404).json({ message: "Vendor account not found" });
       return;
     }
 
-    const venueRepository = AppDataSource.getRepository(Venue);
-    const venues = await venueRepository.findBy({ vendorAccountID });
     const venueIDs = venues.map((venue) => venue.venueID);
 
     if (venueIDs.length === 0) {
       res.status(200).json({
         message: "Vendor report retrieved successfully",
-        report: buildEmptyReport(period),
+        report: {
+          ...buildEmptySummaryReport(),
+          ...buildEmptyUtilisationReport(period),
+        },
       });
       return;
     }
 
-    const bookingRepository = AppDataSource.getRepository(Booking);
-    const bookings = await bookingRepository
-      .createQueryBuilder("booking")
-      .leftJoinAndSelect("booking.venue", "venue")
-      .leftJoinAndSelect("booking.hirerAccount", "hirerAccount")
-      .leftJoinAndSelect("hirerAccount.user", "user")
-      .where("booking.venueID IN (:...venueIDs)", { venueIDs })
-      .andWhere("booking.status = :status", { status: "Accepted" })
-      .orderBy("booking.eventDate", "ASC")
-      .getMany();
-
+    const bookings = await loadAcceptedBookings(venueIDs);
     const periodRange = getPeriodRange(period);
     const filteredBookings = bookings.filter((booking) =>
       isDateInRange(booking.eventDate, periodRange),
