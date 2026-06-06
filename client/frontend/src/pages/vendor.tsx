@@ -1,6 +1,6 @@
 import { Badge, Button, HStack, Icon, Input } from "@chakra-ui/react";
 import { useRouter } from "next/router";
-import type { FormEvent } from "react";
+import type { ChangeEvent, FormEvent } from "react";
 import { useEffect, useState } from "react";
 import { FaBuilding, FaChartBar, FaStar, FaUsers, FaTrash, FaEdit, FaBan} from "react-icons/fa";
 import {
@@ -67,8 +67,9 @@ const emptyVenueForm = {
   capacity: "",
   price: "",
   description: "",
-  image: "",
 };
+
+const maxVenueImageSize = 5 * 1024 * 1024;
 
 function getHirerDisplayName(application: BookingApplication) {
   return application.hirerName?.trim() || application.hirerEmail || "Unknown hirer";
@@ -127,6 +128,18 @@ function isReportPeriod(value: string): value is ReportPeriod {
   return reportPeriodOptions.some((option) => option.value === value);
 }
 
+function validateVenueImageFile(file: File) {
+  if (!file.type.startsWith("image/")) {
+    return "Venue image must be an image file.";
+  }
+
+  if (file.size > maxVenueImageSize) {
+    return "Venue image must be 5MB or smaller.";
+  }
+
+  return "";
+}
+
 export default function VendorPage() {
   
   const router = useRouter();
@@ -146,6 +159,8 @@ export default function VendorPage() {
   const [isCreatingVenue, setIsCreatingVenue] = useState(false);
   const [venueForm, setVenueForm] = useState(emptyVenueForm);
   const [venueFormError, setVenueFormError] = useState("");
+  const [venueImageFile, setVenueImageFile] = useState<File | null>(null);
+  const [venueImageError, setVenueImageError] = useState("");
 
   // useState for editing form
   const [isEditVenueOpen, setIsEditVenueOpen] = useState(false);
@@ -153,6 +168,8 @@ export default function VendorPage() {
   const [isUpdatingVenue, setIsUpdatingVenue] = useState(false);
   const [editVenueForm, setEditVenueForm] = useState(emptyVenueForm);
   const [editVenueFormError, setEditVenueFormError] = useState("");
+  const [editVenueImageFile, setEditVenueImageFile] = useState<File | null>(null);
+  const [editVenueImageError, setEditVenueImageError] = useState("");
 
   // useState for deleting a venue
   const [isDeletingVenue, setIsDeletingVenue] = useState(false);
@@ -419,6 +436,50 @@ export default function VendorPage() {
     }));
   }
 
+  function handleCreateVenueImageChange(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0] ?? null;
+
+    if (!file) {
+      setVenueImageFile(null);
+      setVenueImageError("");
+      return;
+    }
+
+    const imageError = validateVenueImageFile(file);
+
+    if (imageError) {
+      setVenueImageFile(null);
+      setVenueImageError(imageError);
+      e.target.value = "";
+      return;
+    }
+
+    setVenueImageFile(file);
+    setVenueImageError("");
+  }
+
+  function handleEditVenueImageChange(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0] ?? null;
+
+    if (!file) {
+      setEditVenueImageFile(null);
+      setEditVenueImageError("");
+      return;
+    }
+
+    const imageError = validateVenueImageFile(file);
+
+    if (imageError) {
+      setEditVenueImageFile(null);
+      setEditVenueImageError(imageError);
+      e.target.value = "";
+      return;
+    }
+
+    setEditVenueImageFile(file);
+    setEditVenueImageError("");
+  }
+
   // Handler for submitting new venues
   async function handleCreateVenue(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -435,21 +496,35 @@ export default function VendorPage() {
       return;
     }
 
+    if (venueImageError) {
+      return;
+    }
+
     setIsCreatingVenue(true);
     setVenueFormError("");
 
     try {
-      await venueApi.createVenue({
+      const response = await venueApi.createVenue({
         vendorAccountID,
         name: venueForm.name.trim(),
         location: venueForm.location.trim(),
         capacity: Number(venueForm.capacity),
         price: Number(venueForm.price),
         description: venueForm.description.trim() || undefined,
-        image: venueForm.image.trim() || undefined,
       });
+
+      if (venueImageFile) {
+        await venueApi.uploadVenueImage(
+          response.data.venue.id,
+          vendorAccountID,
+          venueImageFile,
+        );
+      }
+
       await refreshVendorVenues(vendorAccountID);
       setVenueForm(emptyVenueForm);
+      setVenueImageFile(null);
+      setVenueImageError("");
       setIsCreateVenueOpen(false);
       toaster.create({
         title: "Venue created",
@@ -480,9 +555,10 @@ export default function VendorPage() {
       capacity: String(venue.capacity),
       price: String(venue.price),
       description: venue.description ?? "",
-      image: venue.image ?? "",
     });
     setEditVenueFormError("");
+    setEditVenueImageFile(null);
+    setEditVenueImageError("");
     setIsEditVenueOpen(true);
   }
 
@@ -497,6 +573,10 @@ export default function VendorPage() {
       return;
     }
 
+    if (editVenueImageError) {
+      return;
+    }
+
     setIsUpdatingVenue(true);
     setEditVenueFormError("");
 
@@ -508,11 +588,21 @@ export default function VendorPage() {
         capacity: Number(editVenueForm.capacity),
         price: Number(editVenueForm.price),
         description: editVenueForm.description.trim() || undefined,
-        image: editVenueForm.image.trim() || undefined,
       });
+
+      if (editVenueImageFile) {
+        await venueApi.uploadVenueImage(
+          editingVenue.id,
+          vendorAccountID,
+          editVenueImageFile,
+        );
+      }
+
       await refreshVendorVenues(vendorAccountID);
       setIsEditVenueOpen(false);
       setEditingVenue(null);
+      setEditVenueImageFile(null);
+      setEditVenueImageError("");
       toaster.create({
         title: "Venue updated",
         description: "Your venue has been updated.",
@@ -545,11 +635,9 @@ export default function VendorPage() {
   async function handleDeleteVenue() {
   if (!venueToDelete || !vendorAccountID) return;
 
-  setIsDeletingVenue(true);
+    setIsDeletingVenue(true);
     try {
-      // TODO: wire up API call
-      console.log("Delete venue:", venueToDelete.id);
-      await venueApi.deleteVenue(venueToDelete.id);
+      await venueApi.deleteVenue(venueToDelete.id, vendorAccountID);
 
       await refreshVendorVenues(vendorAccountID);
       toaster.create({
@@ -1176,6 +1264,8 @@ async function handleCreateBlockedSlot(e: FormEvent<HTMLFormElement>) {
                 disabled={!vendorAccountID}
                 onClick={() => {
                   setVenueFormError("");
+                  setVenueImageFile(null);
+                  setVenueImageError("");
                   setIsCreateVenueOpen(true);
                 }}
               >
@@ -1319,12 +1409,24 @@ async function handleCreateBlockedSlot(e: FormEvent<HTMLFormElement>) {
                   />
                 </Field>
 
-                <Field label="Image URL" color="black">
+                <Field label="Venue image" color="black">
                   <Input
-                    value={venueForm.image}
-                    onChange={(e) => updateVenueForm("image", e.target.value)}
-                    placeholder="https://example.com/venue.jpg"
+                    accept="image/*"
+                    type="file"
+                    onChange={handleCreateVenueImageChange}
                   />
+                  {venueImageFile ? (
+                    <p className="mt-1 text-xs text-zinc-600">
+                      Selected: {venueImageFile.name}
+                    </p>
+                  ) : (
+                    <p className="mt-1 text-xs text-zinc-500">
+                      Optional. Upload an image file up to 5MB.
+                    </p>
+                  )}
+                  {venueImageError ? (
+                    <p className="mt-1 text-xs text-red-600">{venueImageError}</p>
+                  ) : null}
                 </Field>
               </DialogBody>
               <DialogFooter>
@@ -1415,12 +1517,26 @@ async function handleCreateBlockedSlot(e: FormEvent<HTMLFormElement>) {
                   />
                 </Field>
 
-                <Field label="Image URL" color="black">
+                <Field label="Venue image" color="black">
                   <Input
-                    value={editVenueForm.image}
-                    onChange={(e) => updateEditVenueForm("image", e.target.value)}
-                    placeholder="https://example.com/venue.jpg"
+                    accept="image/*"
+                    type="file"
+                    onChange={handleEditVenueImageChange}
                   />
+                  {editVenueImageFile ? (
+                    <p className="mt-1 text-xs text-zinc-600">
+                      Selected: {editVenueImageFile.name}
+                    </p>
+                  ) : (
+                    <p className="mt-1 text-xs text-zinc-500">
+                      Leave empty to keep the current venue image.
+                    </p>
+                  )}
+                  {editVenueImageError ? (
+                    <p className="mt-1 text-xs text-red-600">
+                      {editVenueImageError}
+                    </p>
+                  ) : null}
                 </Field>
               </DialogBody>
               <DialogFooter>
