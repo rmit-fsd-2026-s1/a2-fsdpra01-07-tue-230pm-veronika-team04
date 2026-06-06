@@ -14,10 +14,12 @@ import router from "next/router";
 import axios from "axios";
 import { useAuth } from "@/context/AuthContext";
 import { useState, useEffect } from "react";
-import { getStoredDocuments, saveDocuments } from "@/utils/documentStorage";
 import { profileApi } from "@/services/profileApi";
 
-import type { ComplianceDocuments, UploadedDocumentMetadata } from "@/types/user";
+import { documentApi } from "@/services/documentApi";
+import type { DocumentRecord } from "@/services/documentApi";
+
+import type { UploadedDocumentMetadata } from "@/types/user";
 
 type InfoRowProps = {
   icon: React.ElementType;
@@ -51,12 +53,10 @@ function InfoRow({ icon, label, value, highlight, isPassword, onClick }: InfoRow
   );
 }
 
-// TODO: This is a bit hacky - Ideally should have an endpoint to fetch the user's uploaded documents instead of relying on localStorage.
-// Change later to fetch from backend and store in context if needed across multiple pages
 // My Document upload table
 function DocUploadRow({ label, document, onUpload, onDelete }: {
   label: string;
-  field: "driverLicence" | "insuranceCertificate" | "businessRegistrationCertificate";
+  field: "driverLicence" | "insuranceCert" | "businessRegCert";
   document: UploadedDocumentMetadata | null;
   onUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onDelete: () => void;
@@ -98,20 +98,24 @@ function DocUploadRow({ label, document, onUpload, onDelete }: {
 // TODO: This is a bit hacky - Ideally should have an endpoint to fetch the user's uploaded documents instead of relying on localStorage.
 // Change later to fetch from backend and store in context if needed across multiple pages
 
-const defaultDocs: ComplianceDocuments = {
-  driverLicence: null,
-  insuranceCertificate: null,
-  applyingAsBusiness: false,
-  abnNumber: null,
-  businessRegistrationCertificate: null,
-};
+// const defaultDocs: ComplianceDocuments = {
+//   driverLicence: null,
+//   insuranceCertificate: null,
+//   applyingAsBusiness: false,
+//   abnNumber: null,
+//   businessRegistrationCertificate: null,
+// };
 
 export default function UserProfile() {
 
   // Initialise the current user
   const { currentUser, isAuthReady, overrideCurrentUser } = useAuth();
   const displayName = currentUser?.name ?? "User";
-  const [documents, setDocuments] = useState<ComplianceDocuments>(defaultDocs);
+
+  const [documents, setDocuments] = useState<DocumentRecord | null>(null);
+  const [complianceScore, setComplianceScore] = useState(0);
+  const [isDocumentsLoading, setIsDocumentsLoading] = useState(false);
+
   const [hirerReputation, setHirerReputation] = useState<number | null>(null);
   const [credibility, calcCredibility] = useState<number>(0.0);
 
@@ -146,23 +150,29 @@ export default function UserProfile() {
   }, [currentUser, isAuthReady]);
 
   useEffect(() => {
-    if (currentUser?.email) {
-      const stored = getStoredDocuments(currentUser.email);
-    if (stored) 
-      setDocuments(stored);
-    }
-  }, [currentUser]);
+  if (!currentUser?.accountID || currentUser.role !== "hirer") return;
 
-  // Caluclate the user's credibility from file uploads
-  useEffect(() => {
-    let score = 0;
-    if (documents.driverLicence) score += 1;
-    if (documents.insuranceCertificate) score += 1;
-    if (documents.businessRegistrationCertificate) score += 1;
-    calcCredibility(score);
-  }, [documents]);
-  // TODO: This is a bit hacky - Ideally should have an endpoint to fetch the user's uploaded documents instead of relying on localStorage.
-  // Change later to fetch from backend and store in context if needed across multiple pages
+  let isMounted = true;
+  const accountID = currentUser.accountID;
+
+  async function fetchDocuments() {
+    setIsDocumentsLoading(true);
+    try {
+      const response = await documentApi.getDocuments(accountID);
+      if (isMounted) {
+        setDocuments(response.data.documents);
+        setComplianceScore(response.data.complianceScore);
+      }
+    } catch (error) {
+      console.error("Failed to load documents:", error);
+    } finally {
+      if (isMounted) setIsDocumentsLoading(false);
+    }
+  }
+
+  fetchDocuments();
+  return () => { isMounted = false; };
+}, [currentUser]);
 
 
 
@@ -322,56 +332,68 @@ export default function UserProfile() {
   //
   // File Upload & Delete
   //
-  function handleFileUpload(
-    e: React.ChangeEvent<HTMLInputElement>,
-    field: "driverLicence" | "insuranceCertificate" | "businessRegistrationCertificate"
-  ) {
-      const file = e.target.files?.[0];
-      if (!file || !currentUser?.email) return;
+  async function handleFileUpload(
+  e: React.ChangeEvent<HTMLInputElement>,
+  field: "driverLicence" | "insuranceCert" | "businessRegCert",
+) {
+  const file = e.target.files?.[0];
+  if (!file || !currentUser?.accountID) return;
 
-      if (file.size > 2 * 1024 * 1024) {
-        toaster.create({ title: "File too large!", description: "Please choose a file under 2MB.", type: "error", duration: 3000, closable: true });
-        return;
-      }
-
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64Data = (reader.result as string).split(",")[1];
-        const updated: ComplianceDocuments = {
-          ...documents,
-          [field]: {
-            fileName: file.name,
-            mimeType: file.type,
-            uploaded: true,
-            base64Data,
-          },
-        };
-        setDocuments(updated);
-        saveDocuments(currentUser.email, updated);
-        toaster.create({ title: "Document uploaded!", type: "success", duration: 3000, closable: true });
-      };
-      reader.readAsDataURL(file);
-    }
-
-    function handleAbnChange(value: string) {
-      if (!currentUser?.email) return;
-      const updated = { ...documents, abnNumber: value };
-      setDocuments(updated);
-      saveDocuments(currentUser.email, updated);
-    }
-
-    function handleApplyingAsBusinessToggle(checked: boolean) {
-      if (!currentUser?.email) return;
-      const updated = { ...documents, applyingAsBusiness: checked };
-      setDocuments(updated);
-      saveDocuments(currentUser.email, updated);
+  if (file.size > 5 * 1024 * 1024) {
+    toaster.create({
+      title: "File too large!",
+      description: "Please choose a file under 5MB.",
+      type: "error",
+      duration: 3000,
+      closable: true,
+    });
+    return;
   }
 
-  function handleFileDelete(field: "driverLicence" | "insuranceCertificate" | "businessRegistrationCertificate") {
-      if (!currentUser?.email) return;
-      const updated = { ...documents, [field]: null };
-      setDocuments(updated);
-      saveDocuments(currentUser.email, updated);
+  try {
+    const response = await documentApi.uploadDocument(currentUser.accountID, field, file);
+    setDocuments(response.data.documents);
+    setComplianceScore(response.data.complianceScore);
+    toaster.create({ title: "Document uploaded!", type: "success", duration: 3000, closable: true });
+  } catch {
+    toaster.create({ title: "Failed to upload document.", type: "error", duration: 3000, closable: true });
+  }
+}
+
+  async function handleFileDelete(
+    field: "driverLicence" | "insuranceCert" | "businessRegCert",
+  ) {
+    if (!currentUser?.accountID) return;
+    try {
+      const response = await documentApi.removeDocument(currentUser.accountID, field);
+      setDocuments(response.data.documents);
+      setComplianceScore(response.data.complianceScore);
+      toaster.create({ title: "Document removed.", type: "success", duration: 3000, closable: true });
+    } catch {
+      toaster.create({ title: "Failed to remove document.", type: "error", duration: 3000, closable: true });
+    }
+  }
+
+  async function handleAbnChange(value: string) {
+    if (!currentUser?.accountID) return;
+    try {
+      const response = await documentApi.updateAbn(currentUser.accountID, value || null);
+      setDocuments(response.data.documents);
+      setComplianceScore(response.data.complianceScore);
+    } catch {
+      console.error("Failed to update ABN");
+    }
+  }
+
+  async function handleApplyingAsBusinessToggle(checked: boolean) {
+    if (!currentUser?.accountID) return;
+    try {
+      const response = await documentApi.updateApplyAsBusiness(currentUser.accountID, checked);
+      setDocuments(response.data.documents);
+      setComplianceScore(response.data.complianceScore);
+    } catch {
+      console.error("Failed to update business status");
+    }
   }
   //
   // File Upload & Delete
@@ -656,77 +678,80 @@ export default function UserProfile() {
 
         {/*Only show if a hirer has logged in*/}
         {currentUser?.role === "hirer" && (
-          <>
-            <h1 className="text-3xl mt-10 font-bold text-gray-900 mb-6">My Reputation</h1>
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden p-6 mb-8">
-              <div className="flex items-center gap-3">
-                <p className="text-sm text-gray-600">Average reputation:</p>
-                <HStack gap={1}>
-                  {Array.from({ length: 5 }).map((_, index) => (
-                    <Icon
-                      as={FaStar}
-                      key={index}
-                      color={index < Math.round(hirerReputation ?? 0) ? "yellow.400" : "gray.300"}
-                      boxSize={4}
-                    />
-                  ))}
-                </HStack>
-                <p className="text-sm text-gray-500">
-                  ({hirerReputation ?? 0}/5)
-                </p>
-              </div>
-            </div>
-
-            <h1 className="text-3xl mt-10 font-bold text-gray-900 mb-6">My Documents</h1>
-            <div className="flex items-center gap-3 mb-4">
-              {/* Star rating based on uploaded documents */}
-              <p className="text-sm text-gray-600">Profile Credibility:</p>
+        <>
+          <h1 className="text-3xl mt-10 font-bold text-gray-900 mb-6">My Reputation</h1>
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden p-6 mb-8">
+            <div className="flex items-center gap-3">
+              <p className="text-sm text-gray-600">Average reputation:</p>
               <HStack gap={1}>
                 {Array.from({ length: 5 }).map((_, index) => (
                   <Icon
                     as={FaStar}
                     key={index}
-                    color={index < credibility ? "green.400" : "gray.300"}
+                    color={index < Math.round(hirerReputation ?? 0) ? "yellow.400" : "gray.300"}
                     boxSize={4}
                   />
                 ))}
               </HStack>
-              <p className="text-sm text-gray-500">({credibility}/5)</p>
+              <p className="text-sm text-gray-500">({hirerReputation ?? 0}/5)</p>
             </div>
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden p-6 space-y-6">
+          </div>
 
+          <h1 className="text-3xl mt-10 font-bold text-gray-900 mb-6">My Documents</h1>
+          <div className="flex items-center gap-3 mb-4">
+            <p className="text-sm text-gray-600">Compliance Score:</p>
+            <HStack gap={1}>
+              {Array.from({ length: 5 }).map((_, index) => (
+                <Icon
+                  as={FaStar}
+                  key={index}
+                  color={index < complianceScore ? "green.400" : "gray.300"}
+                  boxSize={4}
+                />
+              ))}
+            </HStack>
+            <p className="text-sm text-gray-500">({complianceScore}/5)</p>
+          </div>
+
+          {isDocumentsLoading ? (
+            <p className="text-sm text-zinc-600">Loading documents...</p>
+          ) : (
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden p-6 space-y-6">
               <DocUploadRow
                 label="Driver Licence"
                 field="driverLicence"
-                document={documents.driverLicence}
+                document={documents?.driverLicence ? { fileName: documents.driverLicence, mimeType: "", uploaded: true, base64Data: "" } : null}
                 onUpload={(e) => handleFileUpload(e, "driverLicence")}
                 onDelete={() => handleFileDelete("driverLicence")}
               />
               <DocUploadRow
                 label="Insurance Certificate"
-                field="insuranceCertificate"
-                document={documents.insuranceCertificate}
-                onUpload={(e) => handleFileUpload(e, "insuranceCertificate")}
-                onDelete={() => handleFileDelete("insuranceCertificate")}
+                field="insuranceCert"
+                document={documents?.insuranceCert ? { fileName: documents.insuranceCert, mimeType: "", uploaded: true, base64Data: "" } : null}
+                onUpload={(e) => handleFileUpload(e, "insuranceCert")}
+                onDelete={() => handleFileDelete("insuranceCert")}
               />
 
               <Separator />
-              {/*Check if applyinf for business*/}
+
               <div>
                 <label className="flex items-center gap-2 text-sm font-medium text-gray-800 cursor-pointer">
-                  <input type="checkbox"
-                    checked={documents.applyingAsBusiness}
+                  <input
+                    type="checkbox"
+                    checked={documents?.isApplyAsBusiness ?? false}
                     onChange={(e) => handleApplyingAsBusinessToggle(e.target.checked)}
                   />
                   Applying as a Business
                 </label>
               </div>
 
-              {documents.applyingAsBusiness && (
+              {documents?.isApplyAsBusiness && (
                 <div>
                   <p className="text-sm font-medium text-gray-800 mb-1">ABN Number</p>
-                  <input type="text" placeholder="Enter ABN"
-                    value={documents.abnNumber ?? ""}
+                  <input
+                    type="text"
+                    placeholder="Enter ABN"
+                    value={documents?.abnNo ?? ""}
                     onChange={(e) => handleAbnChange(e.target.value)}
                     className="w-full rounded border border-zinc-300 px-3 py-2 text-sm"
                   />
@@ -735,15 +760,15 @@ export default function UserProfile() {
 
               <DocUploadRow
                 label="Business Registration Certificate"
-                field="businessRegistrationCertificate"
-                document={documents.businessRegistrationCertificate}
-                onUpload={(e) => handleFileUpload(e, "businessRegistrationCertificate")}
-                onDelete={() => handleFileDelete("businessRegistrationCertificate")}
+                field="businessRegCert"
+                document={documents?.businessRegCert ? { fileName: documents.businessRegCert, mimeType: "", uploaded: true, base64Data: "" } : null}
+                onUpload={(e) => handleFileUpload(e, "businessRegCert")}
+                onDelete={() => handleFileDelete("businessRegCert")}
               />
-
             </div>
-          </>
-        )}
+          )}
+        </>
+      )}
         
       </div>
     </Layout>

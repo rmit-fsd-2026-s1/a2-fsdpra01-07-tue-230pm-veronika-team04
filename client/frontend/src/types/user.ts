@@ -22,10 +22,10 @@ export type UploadedDocumentMetadata = {
   base64Data: string;
 };
 
-export type ComplianceDocuments = {
-  driverLicence: UploadedDocumentMetadata | null;
-  insuranceCertificate: UploadedDocumentMetadata | null;
-  applyingAsBusiness: boolean;
-  abnNumber: string | null;
-  businessRegistrationCertificate: UploadedDocumentMetadata | null;
-};
+// export type ComplianceDocuments = {
+//   driverLicence: UploadedDocumentMetadata | null;
+//   insuranceCertificate: UploadedDocumentMetadata | null;
+//   applyingAsBusiness: boolean;
+//   abnNumber: string | null;
+//   businessRegistrationCertificate: UploadedDocumentMetadata | null;
+// };
