@@ -1,0 +1,19 @@
+import { Router } from "express";
+import {
+  getDocuments,
+  removeDocument,
+  updateAbn,
+  updateApplyAsBusiness,
+  uploadDocument,
+} from "../controllers/documentController";
+import { upload } from "../config/multerConfig";
+
+const router = Router();
+
+router.get("/:hireAccountID", getDocuments);
+router.post("/:hireAccountID/upload/:field", upload.single("file"), uploadDocument);
+router.delete("/:hireAccountID/remove/:field", removeDocument);
+router.patch("/:hireAccountID/abn", updateAbn);
+router.patch("/:hireAccountID/business", updateApplyAsBusiness);
+
+export default router;
