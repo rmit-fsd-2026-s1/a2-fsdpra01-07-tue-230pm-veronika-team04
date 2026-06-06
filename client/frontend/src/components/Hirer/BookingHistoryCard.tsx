@@ -86,7 +86,10 @@ export default function BookingHistoryCard({ booking }: BookingHistoryCardProps)
               </span>
             </HStack>
           </div>
-          <p>
+          <p
+            className="max-w-full whitespace-pre-wrap break-words"
+            style={{ overflowWrap: "anywhere" }}
+          >
             <span className="font-medium text-zinc-900">Vendor comment:</span>{" "}
             {booking.vendorComment?.trim() || "No comment yet"}
           </p>

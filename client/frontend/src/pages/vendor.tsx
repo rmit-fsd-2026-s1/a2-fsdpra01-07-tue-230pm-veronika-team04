@@ -19,7 +19,7 @@ import type { Venue } from "@/types/venue";
 import { applicationApi } from "@/services/applicationApi";
 import type { BookingApplication } from "@/types/booking";
 import { blockedSlotApi } from "@/services/blockedSlotApi";
-import type { BlockedSlot, CreateBlockedSlotPayload } from "@/services/blockedSlotApi";
+import type { BlockedSlot } from "@/services/blockedSlotApi";
 
 const summaryRows = [
   {
@@ -62,6 +62,18 @@ function formatReputation(reputation: number | null | undefined) {
   }
 
   return "Not rated yet";
+}
+
+function getApplicationStatusColor(status: BookingApplication["status"]) {
+  if (status === "Accepted") {
+    return "green";
+  }
+
+  if (status === "Rejected") {
+    return "red";
+  }
+
+  return "yellow";
 }
 
 export default function VendorPage() {
@@ -645,11 +657,7 @@ async function handleCreateBlockedSlot(e: FormEvent<HTMLFormElement>) {
                         </p>
                       </div>
                       <Badge
-                        colorPalette={
-                          application.status === "Accepted" ? "green"
-                          : application.status === "Rejected" ? "red"
-                          : "yellow"
-                        }
+                        colorPalette={getApplicationStatusColor(application.status)}
                         variant="subtle"
                       >
                         {application.status}
@@ -676,7 +684,10 @@ async function handleCreateBlockedSlot(e: FormEvent<HTMLFormElement>) {
                     </div>
 
                     {application.vendorComment && (
-                      <p className="mt-3 text-sm text-zinc-600">
+                      <p
+                        className="mt-3 max-w-full whitespace-pre-wrap break-words text-sm text-zinc-600"
+                        style={{ overflowWrap: "anywhere" }}
+                      >
                         <span className="font-medium text-zinc-950">Vendor comment: </span>
                         {application.vendorComment}
                       </p>
@@ -731,7 +742,7 @@ async function handleCreateBlockedSlot(e: FormEvent<HTMLFormElement>) {
           open={reviewingApplication !== null}
           onOpenChange={(details) => { if (!details.open) closeReviewDialog(); }}
         >
-          <DialogContent>
+          <DialogContent width="fit-content" maxW="calc(100vw - 2rem)">
             <DialogHeader>
               <DialogTitle color="black">Review Application</DialogTitle>
             </DialogHeader>
@@ -809,15 +820,16 @@ async function handleCreateBlockedSlot(e: FormEvent<HTMLFormElement>) {
                     No previous hire history found.
                   </p>
                 ) : (
-                  <div className="overflow-x-auto rounded border border-zinc-200">
-                    <table className="min-w-full text-left text-sm text-zinc-700">
+                  <div className="max-w-full overflow-x-auto">
+                    <table className="w-auto rounded border border-zinc-200 text-left text-sm text-zinc-700">
                       <thead className="border-b border-zinc-200 bg-zinc-50 text-zinc-950">
                         <tr>
-                          <th className="px-3 py-2 font-semibold">Venue name</th>
-                          <th className="px-3 py-2 font-semibold">Location</th>
-                          <th className="px-3 py-2 font-semibold">Event name</th>
-                          <th className="px-3 py-2 font-semibold">Date of hire</th>
-                          <th className="px-3 py-2 font-semibold">Star rating</th>
+                          <th className="whitespace-nowrap px-3 py-2 font-semibold">Venue name</th>
+                          <th className="whitespace-nowrap px-3 py-2 font-semibold">Location</th>
+                          <th className="whitespace-nowrap px-3 py-2 font-semibold">Event name</th>
+                          <th className="whitespace-nowrap px-3 py-2 font-semibold">Date of hire</th>
+                          <th className="whitespace-nowrap px-3 py-2 font-semibold">Status</th>
+                          <th className="whitespace-nowrap px-3 py-2 font-semibold">Star rating</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -826,11 +838,19 @@ async function handleCreateBlockedSlot(e: FormEvent<HTMLFormElement>) {
                             key={booking.bookingID}
                             className="border-b border-zinc-100 last:border-b-0"
                           >
-                            <td className="px-3 py-2">{booking.venueName}</td>
-                            <td className="px-3 py-2">{booking.venueLocation}</td>
-                            <td className="px-3 py-2">{booking.eventName}</td>
-                            <td className="px-3 py-2">{booking.eventDate}</td>
-                            <td className="px-3 py-2">
+                            <td className="whitespace-nowrap px-3 py-2">{booking.venueName}</td>
+                            <td className="whitespace-nowrap px-3 py-2">{booking.venueLocation}</td>
+                            <td className="whitespace-nowrap px-3 py-2">{booking.eventName}</td>
+                            <td className="whitespace-nowrap px-3 py-2">{booking.eventDate}</td>
+                            <td className="whitespace-nowrap px-3 py-2">
+                              <Badge
+                                colorPalette={getApplicationStatusColor(booking.status)}
+                                variant="subtle"
+                              >
+                                {booking.status}
+                              </Badge>
+                            </td>
+                            <td className="whitespace-nowrap px-3 py-2">
                               {booking.rating == null
                                 ? "Not rated yet"
                                 : `${booking.rating}/5`}
@@ -884,7 +904,7 @@ async function handleCreateBlockedSlot(e: FormEvent<HTMLFormElement>) {
                   Vendor comment
                 </label>
                 <textarea
-                  className="min-h-24 w-full rounded border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-700 outline-none focus:border-[#095d44]"
+                  className="min-h-24 w-full max-w-full resize-y rounded border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-700 outline-none focus:border-[#095d44]"
                   value={vendorComment}
                   onChange={(e) => setVendorComment(e.target.value)}
                   placeholder="Optional comments for the hirer..."
