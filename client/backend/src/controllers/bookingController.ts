@@ -3,6 +3,7 @@ import { AppDataSource } from "../data-source";
 import { Booking } from "../entity/Booking";
 import { HirerAccount } from "../entity/HirerAccount";
 import { Venue } from "../entity/Venue";
+import { BlockedSlot } from "../entity/BlockedSlot";
 
 function toPositiveInt(value: unknown) {
   const numberValue = Number(value);
@@ -87,10 +88,7 @@ function mapBooking(booking: Booking) {
   };
 }
 
-export async function createBooking(
-  req: Request,
-  res: Response,
-): Promise<void> {
+export async function createBooking(req: Request, res: Response,): Promise<void> {
   try {
     const hireAccountID = toPositiveInt(req.body.hireAccountID);
     const venueID = toPositiveInt(req.body.venueID);
@@ -164,7 +162,23 @@ export async function createBooking(
     }
 
     // TODO: Check duplicate booking for the same venue/date/time.
-    // TODO: Check blocked slot conflicts before accepting the request.
+    // Check for active blocked slot conflicts
+    const blockedSlotRepository = AppDataSource.getRepository(BlockedSlot);
+    const bookingStart = new Date(`${eventDate}T${eventTime}:00`);
+    const bookingEnd = new Date(bookingStart.getTime() + duration * 60 * 60 * 1000);
+
+    const activeSlots = await blockedSlotRepository.find({
+      where: { venueID, isActive: true },
+    });
+
+    const isBlocked = activeSlots.some((slot) => {
+      return bookingStart < slot.endDateTime && bookingEnd > slot.startDateTime;
+    });
+
+    if (isBlocked) {
+      res.status(400).json({ message: "This venue is blocked for the requested time slot." });
+      return;
+    }
 
     const bookingRepository = AppDataSource.getRepository(Booking);
     const booking = bookingRepository.create({
