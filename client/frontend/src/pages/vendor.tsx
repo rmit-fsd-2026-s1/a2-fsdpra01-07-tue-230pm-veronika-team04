@@ -3,6 +3,15 @@ import { useRouter } from "next/router";
 import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
 import { FaBuilding, FaChartBar, FaStar, FaUsers, FaTrash, FaEdit, FaBan} from "react-icons/fa";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 
 import {DialogBody, DialogCloseTrigger, DialogContent, DialogFooter,
   DialogHeader, DialogRoot, DialogTitle,
@@ -20,28 +29,15 @@ import { applicationApi } from "@/services/applicationApi";
 import type { BookingApplication } from "@/types/booking";
 import { blockedSlotApi } from "@/services/blockedSlotApi";
 import type { BlockedSlot } from "@/services/blockedSlotApi";
+import { reportApi } from "@/services/reportApi";
+import type { ReportPeriod, VendorReport } from "@/types/report";
 
-const summaryRows = [
-  {
-    section: "Most Chosen Applicant",
-    hirerEmail: "morgan@example.com",
-    chosenCount: 3,
-    totalApplications: 5,
-  },
-  {
-    section: "Least Chosen Applicant",
-    hirerEmail: "alex@example.com",
-    chosenCount: 1,
-    totalApplications: 4,
-  },
-  {
-    section: "Applicants Not Selected",
-    hirerEmail: "casey@example.com",
-    chosenCount: 0,
-    totalApplications: 2,
-  },
+const reportPeriodOptions: { label: string; value: ReportPeriod }[] = [
+  { label: "This week", value: "thisWeek" },
+  { label: "This month", value: "thisMonth" },
+  { label: "Last month", value: "lastMonth" },
+  { label: "All time", value: "allTime" },
 ];
-// TODO: DELETE LATER Sample hard-coded data
 
 const emptyVenueForm = {
   name: "",
@@ -74,6 +70,10 @@ function getApplicationStatusColor(status: BookingApplication["status"]) {
   }
 
   return "yellow";
+}
+
+function isReportPeriod(value: string): value is ReportPeriod {
+  return reportPeriodOptions.some((option) => option.value === value);
 }
 
 export default function VendorPage() {
@@ -132,6 +132,10 @@ export default function VendorPage() {
   const [blockFormError, setBlockFormError] = useState("");
 
   const [applicationSortOrder, setApplicationSortOrder] = useState<"highToLow" | "lowToHigh" | null>(null);
+  const [reportPeriod, setReportPeriod] = useState<ReportPeriod>("thisMonth");
+  const [reportData, setReportData] = useState<VendorReport | null>(null);
+  const [isReportLoading, setIsReportLoading] = useState(false);
+  const [reportError, setReportError] = useState("");
 
   // Will validate user login and if they're a vendor role
   useEffect(() => {
@@ -210,6 +214,56 @@ export default function VendorPage() {
     fetchApplications();
     return () => { isMounted = false; };
   }, [currentUserRole, isAuthReady, vendorAccountID]);
+
+  useEffect(() => {
+    if (
+      !isAuthReady ||
+      currentUserRole !== "vendor" ||
+      !vendorAccountID ||
+      activeSection !== "visualSummary"
+    ) {
+      return;
+    }
+
+    let isMounted = true;
+    const accountID = vendorAccountID;
+
+    async function fetchReport() {
+      setIsReportLoading(true);
+      setReportError("");
+
+      try {
+        const response = await reportApi.getVendorReport(accountID, reportPeriod);
+
+        if (isMounted) {
+          setReportData(response.data.report);
+        }
+      } catch (error) {
+        console.error("Error fetching visual summary:", error);
+
+        if (isMounted) {
+          setReportData(null);
+          setReportError("Unable to load visual summary.");
+        }
+      } finally {
+        if (isMounted) {
+          setIsReportLoading(false);
+        }
+      }
+    }
+
+    fetchReport();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [
+    activeSection,
+    currentUserRole,
+    isAuthReady,
+    reportPeriod,
+    vendorAccountID,
+  ]);
   
   // Default fallback
   if (!isAuthReady || !currentUser || currentUser.role !== "vendor") {
@@ -217,6 +271,19 @@ export default function VendorPage() {
   }
   const displayName = currentUser.name || "Vendor";
   const venueMessage = !vendorAccountID ? "No vendor account is linked to this user." : venueError;
+  const talliesByVenueChartData =
+    reportData?.talliesByVenue.map((item) => ({
+      label: `${item.venueName} - ${item.hirerName}`,
+      tally: item.tally,
+    })) ?? [];
+
+  function handleReportPeriodChange(value: string) {
+    if (!isReportPeriod(value)) {
+      return;
+    }
+
+    setReportPeriod(value);
+  }
 
   // Refresh the vendor's venue list after create, update, or delete.
   async function refreshVendorVenues(accountID: number) {
@@ -1430,29 +1497,74 @@ async function handleCreateBlockedSlot(e: FormEvent<HTMLFormElement>) {
 
         {/* Visual Summary */}
         {activeSection === "visualSummary" && (
-          <section className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
-            <h2 className="text-xl font-semibold text-zinc-950">Visual Summary</h2>
-            <div className="mt-4 overflow-x-auto">
-              <table className="min-w-full text-left text-sm text-zinc-700">
-                <thead className="border-b border-zinc-200 text-zinc-950">
-                  <tr>
-                    <th className="pb-3 pr-4 font-semibold">Section</th>
-                    <th className="pb-3 pr-4 font-semibold">Hirer Email</th>
-                    <th className="pb-3 pr-4 font-semibold">Chosen Count</th>
-                    <th className="pb-3 font-semibold">Total Applications</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {summaryRows.map((row) => (
-                    <tr key={row.section} className="border-b border-zinc-100">
-                      <td className="py-3 pr-4">{row.section}</td>
-                      <td className="py-3 pr-4">{row.hirerEmail}</td>
-                      <td className="py-3 pr-4">{row.chosenCount}</td>
-                      <td className="py-3">{row.totalApplications}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          <section className="space-y-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 className="text-xl font-semibold text-zinc-950">
+                  Visual Summary
+                </h2>
+                <p className="mt-1 text-sm text-zinc-600">
+                  Accepted booking tallies for hirers across your venues.
+                </p>
+              </div>
+
+              <select
+                value={reportPeriod}
+                onChange={(event) => handleReportPeriodChange(event.target.value)}
+                className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-[#095d44]"
+              >
+                {reportPeriodOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
+              <h3 className="text-lg font-semibold text-zinc-950">
+                Hirer tallies by venue
+              </h3>
+              <p className="mt-1 text-sm text-zinc-600">
+                Counts accepted bookings only.
+              </p>
+
+              <div className="mt-5">
+                {isReportLoading ? (
+                  <p className="text-sm text-zinc-600">
+                    Loading visual summary...
+                  </p>
+                ) : reportError ? (
+                  <p className="text-sm text-red-600">
+                    {reportError}
+                  </p>
+                ) : talliesByVenueChartData.length === 0 ? (
+                  <p className="text-sm text-zinc-600">
+                    No report data available for this period.
+                  </p>
+                ) : (
+                  <div className="h-[180px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        data={talliesByVenueChartData}
+                        layout="vertical"
+                        margin={{ left: 16, right: 24 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis type="number" allowDecimals={false} />
+                        <YAxis
+                          type="category"
+                          dataKey="label"
+                          width={180}
+                          tick={{ fontSize: 12 }}
+                        />
+                        <Tooltip />
+                        <Bar dataKey="tally" fill="#095d44" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+              </div>
             </div>
           </section>
         )}
