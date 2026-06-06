@@ -2,6 +2,7 @@ import Image from "next/image";
 import type { ReactNode } from "react";
 
 import { Tag } from "@/components/ui/tag";
+import { BACKEND_BASE_URL } from "@/services/api";
 import type { Venue } from "@/types/venue";
 
 type VenueCardProps = {
@@ -11,18 +12,45 @@ type VenueCardProps = {
   useChakraTags?: boolean;
 };
 
+function isImageFileName(value: string) {
+  return /\.(jpg|jpeg|png|gif|webp|avif|svg)$/i.test(value);
+}
+
+function getVenueImageSrc(image: string) {
+  const imageValue = image.trim();
+
+  if (!imageValue) {
+    return null;
+  }
+
+  if (imageValue.startsWith("http")) {
+    return imageValue;
+  }
+
+  if (imageValue.startsWith("/uploads")) {
+    return `${BACKEND_BASE_URL}${imageValue}`;
+  }
+
+  // Legacy DB rows may still contain venue_1.jpg or /venue_1.jpg.
+  if (isImageFileName(imageValue)) {
+    return imageValue.startsWith("/")
+      ? `${BACKEND_BASE_URL}/uploads/venues${imageValue}`
+      : `${BACKEND_BASE_URL}/uploads/venues/${imageValue}`;
+  }
+
+  return null;
+}
+
 export default function VenueCard({
   venue,
   actions,
   variant = "default",
   useChakraTags = false,
 }: VenueCardProps) {
-  const hasImage = venue.image.trim() !== "";
   const isSummary = variant === "summary";
-  const imageSrc =
-    venue.image.startsWith("/") || venue.image.startsWith("http")
-      ? venue.image
-      : `/${venue.image}`;
+  const imageSrc = getVenueImageSrc(venue.image);
+  const isBackendUploadImage =
+    imageSrc?.startsWith(`${BACKEND_BASE_URL}/uploads/`) ?? false;
   const statusColor =
     venue.status === "available"
       ? "green"
@@ -30,17 +58,22 @@ export default function VenueCard({
 
   return (
     <article className="overflow-hidden rounded-3xl border border-black/10 bg-white shadow-sm">
-      {hasImage ? (
+      {imageSrc ? (
         <div className="relative h-52 w-full">
           <Image
             src={imageSrc}
             alt={venue.name}
             fill
+            unoptimized={isBackendUploadImage}
             className="object-cover"
             sizes="(min-width: 1024px) 30vw, 100vw"
           />
         </div>
-      ) : null}
+      ) : (
+        <div className="flex h-52 w-full items-center justify-center bg-zinc-100 text-sm font-medium text-zinc-500">
+          No image
+        </div>
+      )}
 
       <div className="space-y-4 p-6">
         <div className="flex items-start justify-between gap-4">
