@@ -8,6 +8,8 @@ import {
   BarChart,
   CartesianGrid,
   Legend,
+  Line,
+  LineChart,
   Pie,
   PieChart,
   ResponsiveContainer,
@@ -36,7 +38,9 @@ import { reportApi } from "@/services/reportApi";
 import type {
   ActiveHirerItem,
   CombinedTallyItem,
-  VendorReport,
+  ReportPeriod,
+  VendorSummaryReport,
+  VendorUtilisationReport,
 } from "@/types/report";
 
 const chartColors = [
@@ -48,6 +52,13 @@ const chartColors = [
   "#0891b2",
   "#be123c",
   "#4b5563",
+];
+
+const reportPeriodOptions: { label: string; value: ReportPeriod }[] = [
+  { label: "This week", value: "thisWeek" },
+  { label: "This month", value: "thisMonth" },
+  { label: "Last month", value: "lastMonth" },
+  { label: "All time", value: "allTime" },
 ];
 
 const emptyVenueForm = {
@@ -112,6 +123,10 @@ function formatBookingCount(tally: number) {
   return tally === 1 ? "1 booking" : `${tally} bookings`;
 }
 
+function isReportPeriod(value: string): value is ReportPeriod {
+  return reportPeriodOptions.some((option) => option.value === value);
+}
+
 export default function VendorPage() {
   
   const router = useRouter();
@@ -168,9 +183,15 @@ export default function VendorPage() {
   const [blockFormError, setBlockFormError] = useState("");
 
   const [applicationSortOrder, setApplicationSortOrder] = useState<"highToLow" | "lowToHigh" | null>(null);
-  const [reportData, setReportData] = useState<VendorReport | null>(null);
-  const [isReportLoading, setIsReportLoading] = useState(false);
-  const [reportError, setReportError] = useState("");
+  const [reportPeriod, setReportPeriod] = useState<ReportPeriod>("thisMonth");
+  const [summaryReportData, setSummaryReportData] = useState<VendorSummaryReport | null>(null);
+  const [isSummaryReportLoading, setIsSummaryReportLoading] = useState(false);
+  const [summaryReportError, setSummaryReportError] = useState("");
+  const [utilisationReportData, setUtilisationReportData] =
+    useState<VendorUtilisationReport | null>(null);
+  const [isUtilisationReportLoading, setIsUtilisationReportLoading] =
+    useState(false);
+  const [utilisationReportError, setUtilisationReportError] = useState("");
 
   // Will validate user login and if they're a vendor role
   useEffect(() => {
@@ -250,8 +271,7 @@ export default function VendorPage() {
     return () => { isMounted = false; };
   }, [currentUserRole, isAuthReady, vendorAccountID]);
 
-  // TODO: Use reportPeriod for CHANGE 3 utilisation line chart.
-  // CHANGE 2 charts use allTime data from reportApi.
+  // CHANGE 2 summary charts always use all-time accepted booking data.
   useEffect(() => {
     if (
       !isAuthReady ||
@@ -265,31 +285,31 @@ export default function VendorPage() {
     let isMounted = true;
     const accountID = vendorAccountID;
 
-    async function fetchReport() {
-      setIsReportLoading(true);
-      setReportError("");
+    async function fetchSummaryReport() {
+      setIsSummaryReportLoading(true);
+      setSummaryReportError("");
 
       try {
-        const response = await reportApi.getVendorReport(accountID);
+        const response = await reportApi.getVendorSummaryReport(accountID);
 
         if (isMounted) {
-          setReportData(response.data.report);
+          setSummaryReportData(response.data.report);
         }
       } catch (error) {
-        console.error("Error fetching visual summary:", error);
+        console.error("Error fetching summary report:", error);
 
         if (isMounted) {
-          setReportData(null);
-          setReportError("Unable to load visual summary.");
+          setSummaryReportData(null);
+          setSummaryReportError("Unable to load summary report.");
         }
       } finally {
         if (isMounted) {
-          setIsReportLoading(false);
+          setIsSummaryReportLoading(false);
         }
       }
     }
 
-    fetchReport();
+    fetchSummaryReport();
 
     return () => {
       isMounted = false;
@@ -300,6 +320,60 @@ export default function VendorPage() {
     isAuthReady,
     vendorAccountID,
   ]);
+
+  // CHANGE 3 utilisation chart changes when the selected report period changes.
+  useEffect(() => {
+    if (
+      !isAuthReady ||
+      currentUserRole !== "vendor" ||
+      !vendorAccountID ||
+      activeSection !== "visualSummary"
+    ) {
+      return;
+    }
+
+    let isMounted = true;
+    const accountID = vendorAccountID;
+
+    async function fetchUtilisationReport() {
+      setIsUtilisationReportLoading(true);
+      setUtilisationReportError("");
+
+      try {
+        const response = await reportApi.getUtilisationReport(
+          accountID,
+          reportPeriod,
+        );
+
+        if (isMounted) {
+          setUtilisationReportData(response.data.report);
+        }
+      } catch (error) {
+        console.error("Error fetching utilisation report:", error);
+
+        if (isMounted) {
+          setUtilisationReportData(null);
+          setUtilisationReportError("Unable to load utilisation report.");
+        }
+      } finally {
+        if (isMounted) {
+          setIsUtilisationReportLoading(false);
+        }
+      }
+    }
+
+    fetchUtilisationReport();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [
+    activeSection,
+    currentUserRole,
+    isAuthReady,
+    reportPeriod,
+    vendorAccountID,
+  ]);
   
   // Default fallback
   if (!isAuthReady || !currentUser || currentUser.role !== "vendor") {
@@ -308,22 +382,29 @@ export default function VendorPage() {
   const displayName = currentUser.name || "Vendor";
   const venueMessage = !vendorAccountID ? "No vendor account is linked to this user." : venueError;
   const talliesByVenueChartData =
-    reportData?.talliesByVenue.map((item) => ({
+    summaryReportData?.talliesByVenue.map((item) => ({
       label: `${item.venueName} - ${item.hirerName}`,
       tally: item.tally,
     })) ?? [];
-  const combinedTallies = reportData?.combinedTallies ?? [];
-  const activeHirers: ActiveHirerItem[] = reportData?.activeHirers ?? [];
+  const combinedTallies = summaryReportData?.combinedTallies ?? [];
+  const activeHirers: ActiveHirerItem[] = summaryReportData?.activeHirers ?? [];
   const activeHirerPieData = activeHirers.map((hirer, index) => ({
     ...hirer,
     fill: chartColors[index % chartColors.length],
   }));
+  const utilisationChartData = utilisationReportData?.utilisation ?? [];
   const { chartData: stackedTallyData, venueNames: stackedVenueNames } =
     buildStackedTallyData(combinedTallies);
-  const hasChange2ReportData =
+  const hasSummaryReportData =
     talliesByVenueChartData.length > 0 ||
     stackedTallyData.length > 0 ||
     activeHirers.length > 0;
+
+  function handleReportPeriodChange(value: string) {
+    if (isReportPeriod(value)) {
+      setReportPeriod(value);
+    }
+  }
 
   // Refresh the vendor's venue list after create, update, or delete.
   async function refreshVendorVenues(accountID: number) {
@@ -1550,17 +1631,17 @@ async function handleCreateBlockedSlot(e: FormEvent<HTMLFormElement>) {
               </p>
             </div>
 
-            {isReportLoading ? (
+            {isSummaryReportLoading ? (
               <p className="text-sm text-zinc-600">
-                Loading visual summary...
+                Loading summary report...
               </p>
-            ) : reportError ? (
+            ) : summaryReportError ? (
               <p className="text-sm text-red-600">
-                {reportError}
+                {summaryReportError}
               </p>
-            ) : !hasChange2ReportData ? (
+            ) : !hasSummaryReportData ? (
               <p className="rounded-lg border border-zinc-200 bg-white p-5 text-sm text-zinc-600 shadow-sm">
-                No report data available yet.
+                No summary report data available yet.
               </p>
             ) : (
               <>
@@ -1657,8 +1738,8 @@ async function handleCreateBlockedSlot(e: FormEvent<HTMLFormElement>) {
                         Most active
                       </p>
                       <p className="mt-1 text-sm text-zinc-600">
-                        {reportData?.mostActiveHirer
-                          ? `${reportData.mostActiveHirer.hirerName} - ${formatBookingCount(reportData.mostActiveHirer.tally)}`
+                        {summaryReportData?.mostActiveHirer
+                          ? `${summaryReportData.mostActiveHirer.hirerName} - ${formatBookingCount(summaryReportData.mostActiveHirer.tally)}`
                           : "Not available"}
                       </p>
                     </div>
@@ -1667,8 +1748,8 @@ async function handleCreateBlockedSlot(e: FormEvent<HTMLFormElement>) {
                         Least active
                       </p>
                       <p className="mt-1 text-sm text-zinc-600">
-                        {reportData?.leastActiveHirer
-                          ? `${reportData.leastActiveHirer.hirerName} - ${formatBookingCount(reportData.leastActiveHirer.tally)}`
+                        {summaryReportData?.leastActiveHirer
+                          ? `${summaryReportData.leastActiveHirer.hirerName} - ${formatBookingCount(summaryReportData.leastActiveHirer.tally)}`
                           : "Not available"}
                       </p>
                     </div>
@@ -1692,6 +1773,85 @@ async function handleCreateBlockedSlot(e: FormEvent<HTMLFormElement>) {
                             <Tooltip />
                             <Legend />
                           </PieChart>
+                        </ResponsiveContainer>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
+                  <div className="flex flex-wrap items-end justify-between gap-3">
+                    <div>
+                      <h3 className="text-lg font-semibold text-zinc-950">
+                        Venue utilisation over time
+                      </h3>
+                      <p className="mt-1 text-sm text-zinc-600">
+                        Shows the percentage of your venues used by accepted bookings over time.
+                      </p>
+                    </div>
+
+                    <label className="flex flex-col gap-1 text-sm font-medium text-zinc-700">
+                      Utilisation time period
+                      <select
+                        value={reportPeriod}
+                        onChange={(event) => handleReportPeriodChange(event.target.value)}
+                        className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm outline-none transition-colors hover:border-zinc-400 focus:border-[#095d44] focus:ring-2 focus:ring-[#095d44]/20"
+                      >
+                        {reportPeriodOptions.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                      <span className="text-xs font-normal text-zinc-500">
+                        This filter only changes this line chart.
+                      </span>
+                    </label>
+                  </div>
+
+                  <div className="mt-5">
+                    {isUtilisationReportLoading ? (
+                      <p className="text-sm text-zinc-600">
+                        Loading utilisation report...
+                      </p>
+                    ) : utilisationReportError ? (
+                      <p className="text-sm text-red-600">
+                        {utilisationReportError}
+                      </p>
+                    ) : utilisationChartData.length === 0 ? (
+                      <p className="text-sm text-zinc-600">
+                        No utilisation data available for this period.
+                      </p>
+                    ) : (
+                      <div className="h-[260px] w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart
+                            data={utilisationChartData}
+                            margin={{ left: 8, right: 20, top: 8, bottom: 8 }}
+                          >
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="date" tick={{ fontSize: 12 }} />
+                            <YAxis
+                              allowDecimals={false}
+                              domain={[0, 100]}
+                              label={{
+                                value: "Utilisation %",
+                                angle: -90,
+                                position: "insideLeft",
+                              }}
+                            />
+                            <Tooltip />
+                            <Legend />
+                            <Line
+                              type="monotone"
+                              dataKey="utilisationPercent"
+                              name="Utilisation"
+                              stroke="#095d44"
+                              strokeWidth={2}
+                              dot={{ r: 3 }}
+                              activeDot={{ r: 5 }}
+                            />
+                          </LineChart>
                         </ResponsiveContainer>
                       </div>
                     )}
