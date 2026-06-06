@@ -1,8 +1,14 @@
 import { Router } from "express";
-import { getVendorReport } from "../controllers/visualDataController";
+import {
+  getUtilisationReport,
+  getVendorReport,
+  getVendorSummaryReport,
+} from "../controllers/visualDataController";
 
 const router = Router();
 
+router.get("/vendor/:vendorAccountID/summary", getVendorSummaryReport);
+router.get("/vendor/:vendorAccountID/utilisation", getUtilisationReport);
 router.get("/vendor/:vendorAccountID", getVendorReport);
 
 export default router;

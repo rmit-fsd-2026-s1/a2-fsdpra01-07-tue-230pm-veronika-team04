@@ -1,14 +1,21 @@
 import apiClient from "./api";
-import type { ReportPeriod, VendorReportResponse } from "@/types/report";
-
-const change2ReportPeriod: ReportPeriod = "allTime";
+import type {
+  ReportPeriod,
+  VendorSummaryReportResponse,
+  VendorUtilisationReportResponse,
+} from "@/types/report";
 
 export const reportApi = {
-  getVendorReport: (vendorAccountID: number) =>
-    apiClient.get<VendorReportResponse>(
-      `/reports/vendor/${vendorAccountID}`,
+  getVendorSummaryReport: (vendorAccountID: number) =>
+    apiClient.get<VendorSummaryReportResponse>(
+      `/reports/vendor/${vendorAccountID}/summary`,
+    ),
+
+  getUtilisationReport: (vendorAccountID: number, period: ReportPeriod) =>
+    apiClient.get<VendorUtilisationReportResponse>(
+      `/reports/vendor/${vendorAccountID}/utilisation`,
       {
-        params: { period: change2ReportPeriod },
+        params: { period },
       },
     ),
 };

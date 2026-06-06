@@ -22,17 +22,32 @@ export type ActiveHirerItem = {
   tally: number;
 };
 
-export type VendorReport = {
-  period: ReportPeriod;
+export type UtilisationItem = {
+  date: string;
+  utilisationPercent: number;
+  activeVenueCount: number;
+  totalVenueCount: number;
+};
+
+export type VendorSummaryReport = {
   talliesByVenue: TalliesByVenueItem[];
   combinedTallies: CombinedTallyItem[];
   activeHirers: ActiveHirerItem[];
   mostActiveHirer: ActiveHirerItem | null;
   leastActiveHirer: ActiveHirerItem | null;
-  utilisation: unknown[];
 };
 
-export type VendorReportResponse = {
+export type VendorUtilisationReport = {
+  period: ReportPeriod;
+  utilisation: UtilisationItem[];
+};
+
+export type VendorSummaryReportResponse = {
   message: string;
-  report: VendorReport;
+  report: VendorSummaryReport;
+};
+
+export type VendorUtilisationReportResponse = {
+  message: string;
+  report: VendorUtilisationReport;
 };
