@@ -18,6 +18,8 @@ import type { Venue } from "@/types/venue";
 
 import { applicationApi } from "@/services/applicationApi";
 import type { BookingApplication } from "@/types/booking";
+import { blockedSlotApi } from "@/services/blockedSlotApi";
+import type { BlockedSlot, CreateBlockedSlotPayload } from "@/services/blockedSlotApi";
 
 const summaryRows = [
   {
@@ -93,8 +95,6 @@ export default function VendorPage() {
   const [isDeletingVenue, setIsDeletingVenue] = useState(false);
   const [venueToDelete, setVenueToDelete] = useState<Venue | null>(null);
 
-  // Remove the sampleApplicants and summaryRows hard-coded consts entirely
-
   // Applications shown in the vendor Applicants tab.
   const [applications, setApplications] = useState<BookingApplication[]>([]);
   const [isLoadingApplications, setIsLoadingApplications] = useState(false);
@@ -110,6 +110,14 @@ export default function VendorPage() {
   const [reviewHistory, setReviewHistory] = useState<BookingApplication[]>([]);
   const [isReviewHistoryLoading, setIsReviewHistoryLoading] = useState(false);
   const [reviewHistoryError, setReviewHistoryError] = useState("");
+
+  // useState for blocked slots
+  const [blockingVenue, setBlockingVenue] = useState<Venue | null>(null);
+  const [venueBlockedSlots, setVenueBlockedSlots] = useState<BlockedSlot[]>([]);
+  const [isLoadingSlots, setIsLoadingSlots] = useState(false);
+  const [isSubmittingBlock, setIsSubmittingBlock] = useState(false);
+  const [blockForm, setBlockForm] = useState({ date: "", startTime: "", endTime: "", reason: "" });
+  const [blockFormError, setBlockFormError] = useState("");
 
   // Will validate user login and if they're a vendor role
   useEffect(() => {
@@ -442,6 +450,115 @@ export default function VendorPage() {
       setIsSubmittingReview(false);
     }
   }
+
+  async function openBlockVenue(venue: Venue) {
+    setBlockingVenue(venue);
+    setBlockForm({ date: "", startTime: "", endTime: "", reason: "" });
+    setBlockFormError("");
+    setIsLoadingSlots(true);
+    setVenueBlockedSlots([]);
+    try {
+      const response = await blockedSlotApi.getBlockedSlotsByVenue(venue.id);
+      setVenueBlockedSlots(response.data.blockedSlots);
+    } catch {
+      // non-fatal, slots list just won't show
+    } finally {
+      setIsLoadingSlots(false);
+    }
+  }
+
+  function closeBlockDialog() {
+    setBlockingVenue(null);
+    setVenueBlockedSlots([]);
+    setBlockFormError("");
+  }
+
+async function handleCreateBlockedSlot(e: FormEvent<HTMLFormElement>) {
+  e.preventDefault();
+  if (!blockingVenue) return;
+
+  setBlockFormError("");
+
+  if (!blockForm.date) {
+    setBlockFormError("Date is required.");
+    return;
+  }
+  if (!blockForm.startTime) {
+    setBlockFormError("Start time is required.");
+    return;
+  }
+  if (!blockForm.endTime) {
+    setBlockFormError("End time is required.");
+    return;
+  }
+  if (blockForm.endTime <= blockForm.startTime) {
+    setBlockFormError("End time must be after start time.");
+    return;
+  }
+
+  setIsSubmittingBlock(true);
+    try {
+      const response = await blockedSlotApi.createBlockedSlot({
+        venueID: blockingVenue.id,
+        date: blockForm.date,
+        startTime: blockForm.startTime,
+        endTime: blockForm.endTime,
+        reason: blockForm.reason.trim() || undefined,
+      });
+      setVenueBlockedSlots((current) => [response.data.blockedSlot, ...current]);
+      setBlockForm({ date: "", startTime: "", endTime: "", reason: "" });
+      toaster.create({
+        title: "Slot blocked",
+        description: "The time slot has been blocked successfully.",
+        type: "success",
+        duration: 3000,
+        closable: true,
+      });
+    } catch {
+      setBlockFormError("Unable to block this slot right now.");
+    } finally {
+      setIsSubmittingBlock(false);
+    }
+  }
+
+  async function handleDeactivateSlot(blockedSlotID: number) {
+    try {
+      const response = await blockedSlotApi.deactivateBlockedSlot(blockedSlotID);
+      setVenueBlockedSlots((current) =>
+        current.map((slot) =>
+          slot.blockedSlotID === blockedSlotID ? response.data.blockedSlot : slot,
+        ),
+      );
+      toaster.create({
+        title: "Slot unblocked",
+        type: "success",
+        duration: 3000,
+        closable: true,
+      });
+    } catch {
+      toaster.create({
+        title: "Unable to unblock slot right now.",
+        type: "error",
+        duration: 3000,
+        closable: true,
+      });
+    }
+  }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
   return (
     <Layout
@@ -863,11 +980,12 @@ export default function VendorPage() {
                     </Button>
                     <Button
                       size="sm"
-                      colorPalette={venue.status === "available" ? "red" : "green"}
-                      variant={venue.status === "available" ? "subtle" : "solid"}
+                      colorPalette="orange"
+                      variant="subtle"
+                      onClick={() => openBlockVenue(venue)}
                     >
                       <Icon as={FaBan}/>
-                      {venue.status === "available" ? "Block" : "Unblock"}
+                      Block
                     </Button>
                     </div>
                     <Button
@@ -1115,6 +1233,139 @@ export default function VendorPage() {
           </DialogContent>
         </DialogRoot>
         {/* Delete Venue Confirmation */}
+
+
+        {/* Block Venue Dialog */}
+        <DialogRoot
+          open={blockingVenue !== null}
+          onOpenChange={(details) => { if (!details.open) closeBlockDialog(); }}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle color="black">
+                Manage Blocked Slots — {blockingVenue?.name}
+              </DialogTitle>
+            </DialogHeader>
+            <DialogCloseTrigger />
+            <DialogBody className="space-y-5">
+
+              {/* Create new block form */}
+              <form onSubmit={handleCreateBlockedSlot} className="space-y-3">
+                <h3 className="text-sm font-semibold text-zinc-950">Block a Time Slot</h3>
+
+                {blockFormError && (
+                  <p className="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                    {blockFormError}
+                  </p>
+                )}
+
+                <Field label="Date" color="black">
+                  <Input
+                    type="date"
+                    value={blockForm.date}
+                    onChange={(e) => setBlockForm((f) => ({ ...f, date: e.target.value }))}
+                  />
+                </Field>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Field label="Start time" color="black">
+                    <Input
+                      type="time"
+                      value={blockForm.startTime}
+                      onChange={(e) => setBlockForm((f) => ({ ...f, startTime: e.target.value }))}
+                    />
+                  </Field>
+                  <Field label="End time" color="black">
+                    <Input
+                      type="time"
+                      value={blockForm.endTime}
+                      onChange={(e) => setBlockForm((f) => ({ ...f, endTime: e.target.value }))}
+                    />
+                  </Field>
+                </div>
+
+                <Field label="Reason (optional)" color="black">
+                  <textarea
+                    className="min-h-16 w-full rounded border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#095d44]"
+                    value={blockForm.reason}
+                    onChange={(e) => setBlockForm((f) => ({ ...f, reason: e.target.value }))}
+                    placeholder="e.g. Private event, maintenance..."
+                  />
+                </Field>
+
+                <Button
+                  type="submit"
+                  bg="#095d44"
+                  color="white"
+                  size="sm"
+                  loading={isSubmittingBlock}
+                >
+                  Block Slot
+                </Button>
+              </form>
+
+              {/* Existing blocked slots list */}
+              <div className="space-y-2">
+                <h3 className="text-sm font-semibold text-zinc-950">Existing Blocked Slots</h3>
+
+                {isLoadingSlots ? (
+                  <p className="text-sm text-zinc-600">Loading...</p>
+                ) : venueBlockedSlots.length === 0 ? (
+                  <p className="text-sm text-zinc-600">No blocked slots for this venue.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {venueBlockedSlots.map((slot) => {
+                      const start = new Date(slot.startDateTime);
+                      const end = new Date(slot.endDateTime);
+                      const dateStr = start.toLocaleDateString();
+                      const startStr = start.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+                      const endStr = end.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+                      return (
+                        <div
+                          key={slot.blockedSlotID}
+                          className={`rounded-lg border p-3 text-sm ${
+                            slot.isActive
+                              ? "border-red-200 bg-red-50"
+                              : "border-zinc-200 bg-zinc-50 opacity-60"
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="space-y-0.5">
+                              <p className="font-medium text-zinc-950">
+                                {dateStr} · {startStr} – {endStr}
+                              </p>
+                              {slot.reason && (
+                                <p className="text-zinc-600">{slot.reason}</p>
+                              )}
+                              <p className={`text-xs font-medium ${slot.isActive ? "text-red-600" : "text-zinc-500"}`}>
+                                {slot.isActive ? "Active" : "Inactive"}
+                              </p>
+                            </div>
+                            {slot.isActive && (
+                              <Button
+                                size="xs"
+                                colorPalette="green"
+                                variant="subtle"
+                                onClick={() => handleDeactivateSlot(slot.blockedSlotID)}
+                              >
+                                Unblock
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </DialogBody>
+            <DialogFooter>
+              <Button variant="outline" onClick={closeBlockDialog}>Close</Button>
+            </DialogFooter>
+          </DialogContent>
+        </DialogRoot>
+        {/* Block Venue Dialog */}
 
 
 

@@ -29,6 +29,7 @@ app.use("/api/profile", profileRoutes);
 app.use("/api/venues", venueRoutes);
 app.use("/api/venue-preferences", venuePreferenceRoutes);
 app.use("/api/applications", applicationRoutes);
+app.use("/api/blocked-slots", blockedSlotRoutes);
 
 
 AppDataSource.initialize()

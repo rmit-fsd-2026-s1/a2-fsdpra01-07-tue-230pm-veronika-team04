@@ -29,9 +29,9 @@ export type CreateBlockedSlotPayload = {
 
 export const blockedSlotApi = {
   getBlockedSlotsByVenue: (venueID: number) =>
-    apiClient.get<BlockedSlotsResponse>(`/api/blocked-slots/venue/${venueID}`),
+    apiClient.get<BlockedSlotsResponse>(`/blocked-slots/venue/${venueID}`),
   createBlockedSlot: (payload: CreateBlockedSlotPayload) =>
-    apiClient.post<BlockedSlotResponse>("/api/blocked-slots", payload),
+    apiClient.post<BlockedSlotResponse>("/blocked-slots", payload),
   deactivateBlockedSlot: (blockedSlotID: number) =>
-    apiClient.patch<BlockedSlotResponse>(`/api/blocked-slots/${blockedSlotID}/deactivate`),
+    apiClient.patch<BlockedSlotResponse>(`/blocked-slots/${blockedSlotID}/deactivate`),
 };
