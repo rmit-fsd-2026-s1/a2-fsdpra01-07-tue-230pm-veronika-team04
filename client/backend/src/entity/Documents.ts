@@ -6,14 +6,23 @@ export class Documents {
   @PrimaryColumn({ type: "int" })
   accountID: number;
 
-  @Column({ type: "nvarchar", length: 500, nullable: true })
-  driverLicence: string | null;
+  @Column({ type: "varbinary", length: "MAX", nullable: true })
+  driverLicenceData: Buffer | null;
 
-  @Column({ type: "nvarchar", length: 500, nullable: true })
-  insuranceCert: string | null;
+  @Column({ type: "nvarchar", length: 255, nullable: true })
+  driverLicenceName: string | null;
 
-  @Column({ type: "nvarchar", length: 500, nullable: true })
-  businessRegCert: string | null;
+  @Column({ type: "varbinary", length: "MAX", nullable: true })
+  insuranceCertData: Buffer | null;
+
+  @Column({ type: "nvarchar", length: 255, nullable: true })
+  insuranceCertName: string | null;
+
+  @Column({ type: "varbinary", length: "MAX", nullable: true })
+  businessRegCertData: Buffer | null;
+
+  @Column({ type: "nvarchar", length: 255, nullable: true })
+  businessRegCertName: string | null;
 
   @Column({ type: "nvarchar", length: 20, nullable: true })
   abnNo: string | null;
