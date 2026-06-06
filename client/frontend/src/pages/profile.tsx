@@ -17,9 +17,7 @@ import { useState, useEffect } from "react";
 import { profileApi } from "@/services/profileApi";
 
 import { documentApi } from "@/services/documentApi";
-import type { DocumentRecord } from "@/services/documentApi";
-
-import type { UploadedDocumentMetadata } from "@/types/user";
+import type { DocumentRecord, DocumentField } from "@/services/documentApi";
 
 type InfoRowProps = {
   icon: React.ElementType;
@@ -54,42 +52,54 @@ function InfoRow({ icon, label, value, highlight, isPassword, onClick }: InfoRow
 }
 
 // My Document upload table
-function DocUploadRow({ label, document, onUpload, onDelete }: {
+function DocUploadRow({ label, field, fileName, onUpload, onDelete, onDownload }: {
   label: string;
-  field: "driverLicence" | "insuranceCert" | "businessRegCert";
-  document: UploadedDocumentMetadata | null;
+  field: DocumentField;
+  fileName: string | null;
   onUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onDelete: () => void;
+  onDownload: () => void;
 }) {
   const inputRef = React.useRef<HTMLInputElement>(null);
   return (
     <div className={`flex items-center gap-4 p-4 rounded-xl border transition-colors ${
-      document ? "border-emerald-400 bg-emerald-50" : "border-gray-200 bg-white"
+      fileName ? "border-emerald-400 bg-emerald-50" : "border-gray-200 bg-white"
     }`}>
       <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
-        document ? "bg-emerald-100" : "bg-gray-100"}`}>
-        <Icon as={FaRegQuestionCircle} color={document ? "green.600" : "gray.400"} />
+        fileName ? "bg-emerald-100" : "bg-gray-100"}`}>
+        <Icon as={FaRegQuestionCircle} color={fileName ? "green.600" : "gray.400"} />
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-gray-800">{label}</p>
         <p className="text-xs text-gray-500 truncate">
-          {document ? document.fileName : "No file uploaded"}
+          {fileName ?? "No file uploaded"}
         </p>
       </div>
       <span className={`text-xs px-2 py-1 rounded-full flex-shrink-0 ${
-        document ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-500"}`}>
-        {document ? "Uploaded" : "Not uploaded"}
+        fileName ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-500"}`}>
+        {fileName ? "Uploaded" : "Not uploaded"}
       </span>
-      <input ref={inputRef} type="file" accept="image/*,application/pdf"
-        onChange={onUpload} className="hidden" />
-      {document && (
-        <button onClick={onDelete}
-          className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-red-600 hover:bg-red-50 flex-shrink-0">
-          Remove
-        </button>
+      <input ref={inputRef} type="file" onChange={onUpload} className="hidden" />
+      {fileName && (
+        <>
+          <button
+            onClick={onDownload}
+            className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-blue-600 hover:bg-blue-50 flex-shrink-0"
+          >
+            Download
+          </button>
+          <button
+            onClick={onDelete}
+            className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-red-600 hover:bg-red-50 flex-shrink-0"
+          >
+            Remove
+          </button>
+        </>
       )}
-      <button onClick={() => inputRef.current?.click()}
-        className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 flex-shrink-0">
+      <button
+        onClick={() => inputRef.current?.click()}
+        className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 flex-shrink-0"
+      >
         Upload
       </button>
     </div>
@@ -329,36 +339,38 @@ export default function UserProfile() {
     }
   }
   
+
+
   //
   // File Upload & Delete
   //
   async function handleFileUpload(
-  e: React.ChangeEvent<HTMLInputElement>,
-  field: "driverLicence" | "insuranceCert" | "businessRegCert",
-) {
-  const file = e.target.files?.[0];
-  if (!file || !currentUser?.accountID) return;
+    e: React.ChangeEvent<HTMLInputElement>,
+    field: "driverLicence" | "insuranceCert" | "businessRegCert",
+  ) {
+    const file = e.target.files?.[0];
+    if (!file || !currentUser?.accountID) return;
 
-  if (file.size > 5 * 1024 * 1024) {
-    toaster.create({
-      title: "File too large!",
-      description: "Please choose a file under 5MB.",
-      type: "error",
-      duration: 3000,
-      closable: true,
-    });
-    return;
-  }
+    if (file.size > 5 * 1024 * 1024) {
+      toaster.create({
+        title: "File too large!",
+        description: "Please choose a file under 5MB.",
+        type: "error",
+        duration: 3000,
+        closable: true,
+      });
+      return;
+    }
 
-  try {
-    const response = await documentApi.uploadDocument(currentUser.accountID, field, file);
-    setDocuments(response.data.documents);
-    setComplianceScore(response.data.complianceScore);
-    toaster.create({ title: "Document uploaded!", type: "success", duration: 3000, closable: true });
-  } catch {
-    toaster.create({ title: "Failed to upload document.", type: "error", duration: 3000, closable: true });
+    try {
+      const response = await documentApi.uploadDocument(currentUser.accountID, field, file);
+      setDocuments(response.data.documents);
+      setComplianceScore(response.data.complianceScore);
+      toaster.create({ title: "Document uploaded!", type: "success", duration: 3000, closable: true });
+    } catch {
+      toaster.create({ title: "Failed to upload document.", type: "error", duration: 3000, closable: true });
+    }
   }
-}
 
   async function handleFileDelete(
     field: "driverLicence" | "insuranceCert" | "businessRegCert",
@@ -395,9 +407,42 @@ export default function UserProfile() {
       console.error("Failed to update business status");
     }
   }
+
+  async function handleFileDownload(field: DocumentField) {
+    if (!currentUser?.accountID) return;
+    try {
+      const response = await documentApi.downloadDocument(currentUser.accountID, field);
+      const blob = new Blob([response.data]);
+      const fieldToName: Record<DocumentField, string> = {
+        driverLicence: documents?.driverLicenceName ?? "driver-licence",
+        insuranceCert: documents?.insuranceCertName ?? "insurance-cert",
+        businessRegCert: documents?.businessRegCertName ?? "business-reg-cert",
+      };
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fieldToName[field];
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      toaster.create({ title: "Failed to download document.", type: "error", duration: 3000, closable: true });
+    }
+  }
   //
   // File Upload & Delete
   //
+
+
+
+
+
+
+
+
+
+
+
+
 
   const navItems = currentUser
     ? [
@@ -412,7 +457,6 @@ export default function UserProfile() {
         { label: "Join", href: "/sign_up" },
       ];
 
-      
   return (
     <Layout
       headerTitle="Venue Vendors"
@@ -676,6 +720,12 @@ export default function UserProfile() {
           </DialogRoot>
           {/* Password change dialog */}
 
+
+
+
+
+
+
         {/*Only show if a hirer has logged in*/}
         {currentUser?.role === "hirer" && (
         <>
@@ -720,16 +770,18 @@ export default function UserProfile() {
               <DocUploadRow
                 label="Driver Licence"
                 field="driverLicence"
-                document={documents?.driverLicence ? { fileName: documents.driverLicence, mimeType: "", uploaded: true, base64Data: "" } : null}
+                fileName={documents?.driverLicenceName ?? null}
                 onUpload={(e) => handleFileUpload(e, "driverLicence")}
                 onDelete={() => handleFileDelete("driverLicence")}
+                onDownload={() => handleFileDownload("driverLicence")}
               />
               <DocUploadRow
                 label="Insurance Certificate"
                 field="insuranceCert"
-                document={documents?.insuranceCert ? { fileName: documents.insuranceCert, mimeType: "", uploaded: true, base64Data: "" } : null}
+                fileName={documents?.insuranceCertName ?? null}
                 onUpload={(e) => handleFileUpload(e, "insuranceCert")}
                 onDelete={() => handleFileDelete("insuranceCert")}
+                onDownload={() => handleFileDownload("insuranceCert")}
               />
 
               <Separator />
@@ -761,9 +813,10 @@ export default function UserProfile() {
               <DocUploadRow
                 label="Business Registration Certificate"
                 field="businessRegCert"
-                document={documents?.businessRegCert ? { fileName: documents.businessRegCert, mimeType: "", uploaded: true, base64Data: "" } : null}
+                fileName={documents?.businessRegCertName ?? null}
                 onUpload={(e) => handleFileUpload(e, "businessRegCert")}
                 onDelete={() => handleFileDelete("businessRegCert")}
+                onDownload={() => handleFileDownload("businessRegCert")}
               />
             </div>
           )}
