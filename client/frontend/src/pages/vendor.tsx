@@ -131,6 +131,8 @@ export default function VendorPage() {
   const [blockForm, setBlockForm] = useState({ date: "", startTime: "", endTime: "", reason: "" });
   const [blockFormError, setBlockFormError] = useState("");
 
+  const [applicationSortOrder, setApplicationSortOrder] = useState<"highToLow" | "lowToHigh" | null>(null);
+
   // Will validate user login and if they're a vendor role
   useEffect(() => {
     if (!isAuthReady) {
@@ -557,6 +559,13 @@ async function handleCreateBlockedSlot(e: FormEvent<HTMLFormElement>) {
     }
   }
 
+  const sortedApplications = [...applications].sort((a, b) => {
+    if (applicationSortOrder === null) return 0;
+    const aRep = a.hirerReputation ?? 0;
+    const bRep = b.hirerReputation ?? 0;
+    return applicationSortOrder === "highToLow" ? bRep - aRep : aRep - bRep;
+  });
+
 
 
 
@@ -627,22 +636,52 @@ async function handleCreateBlockedSlot(e: FormEvent<HTMLFormElement>) {
         {/* Applicants Tab */}
         {activeSection === "applicants" && (
           <section className="space-y-4">
-            <div>
-              <h2 className="text-xl font-semibold text-zinc-950">Applicants</h2>
-              <p className="mt-1 text-sm text-zinc-600">
-                Booking applications for your venues.
-              </p>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-xl font-semibold text-zinc-950">Applicants</h2>
+                <p className="mt-1 text-sm text-zinc-600">
+                  Booking applications for your venues.
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  bg={applicationSortOrder === "highToLow" ? "#095d44" : "white"}
+                  color={applicationSortOrder === "highToLow" ? "white" : "black"}
+                  variant={applicationSortOrder === "highToLow" ? "solid" : "outline"}
+                  onClick={() =>
+                    setApplicationSortOrder((current) =>
+                      current === "highToLow" ? null : "highToLow"
+                    )
+                  }
+                >
+                  Reputation: High → Low
+                </Button>
+                <Button
+                  size="sm"
+                  bg={applicationSortOrder === "lowToHigh" ? "#095d44" : "white"}
+                  color={applicationSortOrder === "lowToHigh" ? "white" : "black"}
+                  variant={applicationSortOrder === "lowToHigh" ? "solid" : "outline"}
+                  onClick={() =>
+                    setApplicationSortOrder((current) =>
+                      current === "lowToHigh" ? null : "lowToHigh"
+                    )
+                  }
+                >
+                  Reputation: Low → High
+                </Button>
+              </div>
             </div>
 
             {isLoadingApplications ? (
               <p className="text-sm text-zinc-600">Loading applications...</p>
             ) : applicationError ? (
               <p className="text-sm text-red-600">{applicationError}</p>
-            ) : applications.length === 0 ? (
+            ) : sortedApplications.length === 0 ? (
               <p className="text-sm text-zinc-600">No applications yet.</p>
             ) : (
               <div className="grid gap-4">
-                {applications.map((application) => (
+                {sortedApplications.map((application) => (
                   <article
                     key={application.bookingID}
                     className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm"
