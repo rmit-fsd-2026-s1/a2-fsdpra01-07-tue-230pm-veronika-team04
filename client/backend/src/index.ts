@@ -10,6 +10,7 @@ import venueRoutes from "./routes/venueRoutes";
 import applicationRoutes from "./routes/applicationRoutes";
 import blockedSlotRoutes from "./routes/blockedSlotRoutes";
 import documentRoutes from "./routes/documentRoutes";
+import visualDataRoutes from "./routes/visualDataRoutes";
 
 dotenv.config();
 
@@ -32,6 +33,7 @@ app.use("/api/venue-preferences", venuePreferenceRoutes);
 app.use("/api/applications", applicationRoutes);
 app.use("/api/blocked-slots", blockedSlotRoutes);
 app.use("/api/documents", documentRoutes);
+app.use("/api/reports", visualDataRoutes);
 
 
 AppDataSource.initialize()
