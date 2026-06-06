@@ -6,6 +6,10 @@ import { toaster } from "@/components/ui/toaster";
 import { useAuth } from "@/context/AuthContext";
 import type { CurrentUser } from "@/types/user";
 
+function isValidEmail(email: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
 function getRoleRedirect(user: CurrentUser) {
   if (user.role === "vendor") {
     return "/vendor";
@@ -31,16 +35,42 @@ export default function LoginPage() {
   const [successMessage, setSuccessMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  function validateForm() {
+    const trimmedEmail = email.trim();
+    let nextEmailError = "";
+    let nextPasswordError = "";
+
+    if (!trimmedEmail) {
+      nextEmailError = "Email is required.";
+    } else if (!isValidEmail(trimmedEmail)) {
+      nextEmailError = "Please enter a valid email address.";
+    }
+
+    if (!password) {
+      nextPasswordError = "Password is required.";
+    }
+
+    setEmailError(nextEmailError);
+    setPasswordError(nextPasswordError);
+
+    return !nextEmailError && !nextPasswordError;
+  }
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setEmailError("");
     setPasswordError("");
     setFormError("");
     setSuccessMessage("");
+
+    if (!validateForm()) {
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
-      const user = await login(email, password);
+      const user = await login(email.trim(), password);
 
       toaster.create({
         title: "Login successful.",
@@ -97,7 +127,10 @@ export default function LoginPage() {
                   id="email"
                   type="email"
                   value={email}
-                  onChange={(event) => setEmail(event.target.value)}
+                  onChange={(event) => {
+                    setEmail(event.target.value);
+                    setEmailError("");
+                  }}
                   className="w-full rounded-md border border-zinc-300 bg-white px-4 py-2.5 text-zinc-950 outline-none transition-colors focus:border-zinc-900"
                   placeholder="Enter your email"
                 />
@@ -111,7 +144,10 @@ export default function LoginPage() {
                   id="password"
                   type="password"
                   value={password}
-                  onChange={(event) => setPassword(event.target.value)}
+                  onChange={(event) => {
+                    setPassword(event.target.value);
+                    setPasswordError("");
+                  }}
                   className="w-full rounded-md border border-zinc-300 bg-white px-4 py-2.5 text-zinc-950 outline-none transition-colors focus:border-zinc-900"
                   placeholder="Enter your password"
                 />

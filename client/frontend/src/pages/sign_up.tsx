@@ -5,6 +5,39 @@ import { useState } from "react";
 import { toaster } from "@/components/ui/toaster";
 import { useAuth } from "@/context/AuthContext";
 
+type SignupErrors = {
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  password?: string;
+  confirmPassword?: string;
+};
+
+function isValidEmail(email: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+function validatePasswordStrength(password: string) {
+  // Keep these rules aligned with the backend password validator.
+  if (password.length < 6) {
+    return "Password must be at least 6 characters long";
+  }
+
+  if (!/[A-Z]/.test(password)) {
+    return "Password must contain at least one uppercase letter";
+  }
+
+  if (!/[a-z]/.test(password)) {
+    return "Password must contain at least one lowercase letter";
+  }
+
+  if (!/[^A-Za-z0-9]/.test(password)) {
+    return "Password must contain at least one special character";
+  }
+
+  return "";
+}
+
 export default function SignUpPage() {
   const router = useRouter();
   const { signup } = useAuth();
@@ -13,22 +46,74 @@ export default function SignUpPage() {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [errors, setErrors] = useState<SignupErrors>({});
   const [formError, setFormError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  function clearFieldError(field: keyof SignupErrors) {
+    setErrors((currentErrors) => ({
+      ...currentErrors,
+      [field]: undefined,
+    }));
+  }
+
+  function validateForm() {
+    const nextErrors: SignupErrors = {};
+    const trimmedEmail = email.trim();
+    const passwordError = validatePasswordStrength(password);
+
+    if (!firstName.trim()) {
+      nextErrors.firstName = "First name is required.";
+    }
+
+    if (!lastName.trim()) {
+      nextErrors.lastName = "Last name is required.";
+    }
+
+    if (!trimmedEmail) {
+      nextErrors.email = "Email is required.";
+    } else if (!isValidEmail(trimmedEmail)) {
+      nextErrors.email = "Please enter a valid email address.";
+    }
+
+    if (!password) {
+      nextErrors.password = "Password is required.";
+    } else if (passwordError) {
+      nextErrors.password = passwordError;
+    }
+
+    if (!confirmPassword) {
+      nextErrors.confirmPassword = "Please confirm your password.";
+    } else if (password && confirmPassword !== password) {
+      nextErrors.confirmPassword = "Passwords do not match.";
+    }
+
+    return nextErrors;
+  }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setFormError("");
     setSuccessMessage("");
+
+    const validationErrors = validateForm();
+
+    if (Object.values(validationErrors).some(Boolean)) {
+      setErrors(validationErrors);
+      return;
+    }
+
+    setErrors({});
     setIsSubmitting(true);
 
     try {
       const user = await signup({
-        name: `${firstName} ${lastName}`.trim(),
-        email,
+        name: `${firstName.trim()} ${lastName.trim()}`.trim(),
+        email: email.trim(),
         password,
-        phone,
+        phone: phone.trim(),
       });
 
       toaster.create({
@@ -47,7 +132,15 @@ export default function SignUpPage() {
           ? error.message
           : "Something went wrong. Please try again later.";
 
-      setFormError(message);
+      if (message.toLowerCase().includes("email")) {
+        setErrors((currentErrors) => ({
+          ...currentErrors,
+          email: message,
+        }));
+      } else {
+        setFormError(message);
+      }
+
       toaster.create({
         title: "Signup failed.",
         description: message,
@@ -85,32 +178,61 @@ export default function SignUpPage() {
 
             <form className="mt-5 space-y-3" onSubmit={handleSubmit}>
               <div className="grid gap-3 sm:grid-cols-2">
-                <input
-                  id="firstName"
-                  type="text"
-                  value={firstName}
-                  onChange={(event) => setFirstName(event.target.value)}
-                  className="w-full rounded-md border border-zinc-300 bg-white px-4 py-2.5 text-zinc-950 outline-none transition-colors focus:border-zinc-900"
-                  placeholder="First name"
-                />
-                <input
-                  id="lastName"
-                  type="text"
-                  value={lastName}
-                  onChange={(event) => setLastName(event.target.value)}
-                  className="w-full rounded-md border border-zinc-300 bg-white px-4 py-2.5 text-zinc-950 outline-none transition-colors focus:border-zinc-900"
-                  placeholder="Last name"
-                />
+                <div>
+                  <input
+                    id="firstName"
+                    type="text"
+                    value={firstName}
+                    onChange={(event) => {
+                      setFirstName(event.target.value);
+                      clearFieldError("firstName");
+                    }}
+                    className="w-full rounded-md border border-zinc-300 bg-white px-4 py-2.5 text-zinc-950 outline-none transition-colors focus:border-zinc-900"
+                    placeholder="First name"
+                  />
+                  {errors.firstName ? (
+                    <p className="mt-1.5 text-sm text-red-600">
+                      {errors.firstName}
+                    </p>
+                  ) : null}
+                </div>
+
+                <div>
+                  <input
+                    id="lastName"
+                    type="text"
+                    value={lastName}
+                    onChange={(event) => {
+                      setLastName(event.target.value);
+                      clearFieldError("lastName");
+                    }}
+                    className="w-full rounded-md border border-zinc-300 bg-white px-4 py-2.5 text-zinc-950 outline-none transition-colors focus:border-zinc-900"
+                    placeholder="Last name"
+                  />
+                  {errors.lastName ? (
+                    <p className="mt-1.5 text-sm text-red-600">
+                      {errors.lastName}
+                    </p>
+                  ) : null}
+                </div>
               </div>
 
-              <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                className="w-full rounded-md border border-zinc-300 bg-white px-4 py-2.5 text-zinc-950 outline-none transition-colors focus:border-zinc-900"
-                placeholder="Enter your email"
-              />
+              <div>
+                <input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(event) => {
+                    setEmail(event.target.value);
+                    clearFieldError("email");
+                  }}
+                  className="w-full rounded-md border border-zinc-300 bg-white px-4 py-2.5 text-zinc-950 outline-none transition-colors focus:border-zinc-900"
+                  placeholder="Enter your email"
+                />
+                {errors.email ? (
+                  <p className="mt-1.5 text-sm text-red-600">{errors.email}</p>
+                ) : null}
+              </div>
 
               <input
                 id="phone"
@@ -121,14 +243,43 @@ export default function SignUpPage() {
                 placeholder="Phone number"
               />
 
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                className="w-full rounded-md border border-zinc-300 bg-white px-4 py-2.5 text-zinc-950 outline-none transition-colors focus:border-zinc-900"
-                placeholder="Create a password"
-              />
+              <div>
+                <input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(event) => {
+                    setPassword(event.target.value);
+                    clearFieldError("password");
+                  }}
+                  className="w-full rounded-md border border-zinc-300 bg-white px-4 py-2.5 text-zinc-950 outline-none transition-colors focus:border-zinc-900"
+                  placeholder="Create a password"
+                />
+                {errors.password ? (
+                  <p className="mt-1.5 text-sm text-red-600">
+                    {errors.password}
+                  </p>
+                ) : null}
+              </div>
+
+              <div>
+                <input
+                  id="confirmPassword"
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(event) => {
+                    setConfirmPassword(event.target.value);
+                    clearFieldError("confirmPassword");
+                  }}
+                  className="w-full rounded-md border border-zinc-300 bg-white px-4 py-2.5 text-zinc-950 outline-none transition-colors focus:border-zinc-900"
+                  placeholder="Confirm password"
+                />
+                {errors.confirmPassword ? (
+                  <p className="mt-1.5 text-sm text-red-600">
+                    {errors.confirmPassword}
+                  </p>
+                ) : null}
+              </div>
 
               {formError ? (
                 <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
