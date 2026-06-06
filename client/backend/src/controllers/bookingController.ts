@@ -15,6 +15,16 @@ function toPositiveInt(value: unknown) {
   return numberValue;
 }
 
+function toPositiveNumber(value: unknown) {
+  const numberValue = Number(value);
+
+  if (!Number.isFinite(numberValue) || numberValue <= 0) {
+    return null;
+  }
+
+  return numberValue;
+}
+
 function getRequiredString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
 }
@@ -24,7 +34,41 @@ function isDateText(value: string) {
 }
 
 function isTimeText(value: string) {
-  return /^\d{2}:\d{2}$/.test(value);
+  return /^\d{2}:\d{2}(:\d{2})?$/.test(value);
+}
+
+function formatDateText(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+function getTomorrowDateString() {
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  return formatDateText(tomorrow);
+}
+
+function parseBookingDateTime(eventDate: string, eventTime: string): Date {
+  const timeText = eventTime.length === 5 ? `${eventTime}:00` : eventTime;
+
+  return new Date(`${eventDate}T${timeText}`);
+}
+
+function addHours(date: Date, hours: number): Date {
+  return new Date(date.getTime() + hours * 60 * 60 * 1000);
+}
+
+function doIntervalsOverlap(
+  startA: Date,
+  endA: Date,
+  startB: Date,
+  endB: Date,
+) {
+  return startA < endB && endA > startB;
 }
 
 function formatDate(value: Date | string | null | undefined): string {
@@ -96,7 +140,7 @@ export async function createBooking(req: Request, res: Response,): Promise<void>
     const eventDate = getRequiredString(req.body.eventDate);
     const eventTime = getRequiredString(req.body.eventTime);
     const guestCount = toPositiveInt(req.body.guestCount);
-    const duration = toPositiveInt(req.body.duration);
+    const duration = toPositiveNumber(req.body.duration);
 
     if (!hireAccountID) {
       res.status(400).json({ message: "Invalid hireAccountID" });
@@ -113,13 +157,37 @@ export async function createBooking(req: Request, res: Response,): Promise<void>
       return;
     }
 
-    if (!eventDate || !isDateText(eventDate)) {
+    if (!eventDate) {
       res.status(400).json({ message: "Event date is required" });
       return;
     }
 
-    if (!eventTime || !isTimeText(eventTime)) {
+    if (!isDateText(eventDate)) {
+      res.status(400).json({ message: "Invalid event date" });
+      return;
+    }
+
+    if (eventDate < getTomorrowDateString()) {
+      res.status(400).json({ message: "Event date must be at least tomorrow." });
+      return;
+    }
+
+    if (!eventTime) {
       res.status(400).json({ message: "Event time is required" });
+      return;
+    }
+
+    if (!isTimeText(eventTime)) {
+      res.status(400).json({ message: "Invalid event time" });
+      return;
+    }
+
+    if (
+      req.body.guestCount === undefined ||
+      req.body.guestCount === null ||
+      req.body.guestCount === ""
+    ) {
+      res.status(400).json({ message: "Guest count is required" });
       return;
     }
 
@@ -128,10 +196,28 @@ export async function createBooking(req: Request, res: Response,): Promise<void>
       return;
     }
 
-    if (!duration) {
-      res.status(400).json({ message: "Duration must be a positive whole number" });
+    if (
+      req.body.duration === undefined ||
+      req.body.duration === null ||
+      req.body.duration === ""
+    ) {
+      res.status(400).json({ message: "Duration is required" });
       return;
     }
+
+    if (!duration) {
+      res.status(400).json({ message: "Duration must be a positive number" });
+      return;
+    }
+
+    const bookingStart = parseBookingDateTime(eventDate, eventTime);
+
+    if (Number.isNaN(bookingStart.getTime())) {
+      res.status(400).json({ message: "Invalid event date or time" });
+      return;
+    }
+
+    const bookingEnd = addHours(bookingStart, duration);
 
     const hirerAccountRepository = AppDataSource.getRepository(HirerAccount);
     const hirerAccount = await hirerAccountRepository.findOneBy({
@@ -161,32 +247,60 @@ export async function createBooking(req: Request, res: Response,): Promise<void>
       return;
     }
 
-    // TODO: Check duplicate booking for the same venue/date/time.
-    // Check for active blocked slot conflicts
+    const bookingRepository = AppDataSource.getRepository(Booking);
+    const existingBookings = await bookingRepository
+      .createQueryBuilder("booking")
+      .where("booking.venueID = :venueID", { venueID })
+      .andWhere("booking.status IN (:...statuses)", {
+        statuses: ["Pending", "Accepted"],
+      })
+      .getMany();
+
+    const hasExistingBookingConflict = existingBookings.some((booking) => {
+      const existingDate = formatDate(booking.eventDate);
+      const existingTime = formatTime(booking.eventTime);
+      const existingStart = parseBookingDateTime(existingDate, existingTime);
+
+      if (Number.isNaN(existingStart.getTime())) {
+        return false;
+      }
+
+      const existingEnd = addHours(existingStart, Number(booking.duration));
+
+      return doIntervalsOverlap(bookingStart, bookingEnd, existingStart, existingEnd);
+    });
+
+    if (hasExistingBookingConflict) {
+      res.status(400).json({ message: "Booking time conflicts with an existing booking" });
+      return;
+    }
+
     const blockedSlotRepository = AppDataSource.getRepository(BlockedSlot);
-    const bookingStart = new Date(`${eventDate}T${eventTime}:00`);
-    const bookingEnd = new Date(bookingStart.getTime() + duration * 60 * 60 * 1000);
 
     const activeSlots = await blockedSlotRepository.find({
       where: { venueID, isActive: true },
     });
 
     const isBlocked = activeSlots.some((slot) => {
-      return bookingStart < slot.endDateTime && bookingEnd > slot.startDateTime;
+      return doIntervalsOverlap(
+        bookingStart,
+        bookingEnd,
+        slot.startDateTime,
+        slot.endDateTime,
+      );
     });
 
     if (isBlocked) {
-      res.status(400).json({ message: "This venue is blocked for the requested time slot." });
+      res.status(400).json({ message: "Booking time conflicts with a blocked slot" });
       return;
     }
 
-    const bookingRepository = AppDataSource.getRepository(Booking);
     const booking = bookingRepository.create({
       venueID,
       accountID: hireAccountID,
       eventName,
       eventDate: new Date(`${eventDate}T00:00:00`),
-      eventTime: new Date(`${eventDate}T${eventTime}:00`),
+      eventTime: bookingStart,
       guestCount,
       duration,
       status: "Pending",

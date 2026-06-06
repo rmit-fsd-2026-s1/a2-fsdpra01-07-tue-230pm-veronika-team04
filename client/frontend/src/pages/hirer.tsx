@@ -35,6 +35,15 @@ type ApplicationFormValues = {
   duration: string;
 };
 
+type ApplicationFormErrors = {
+  eventName?: string;
+  eventDate?: string;
+  eventTime?: string;
+  guestCount?: string;
+  duration?: string;
+  form?: string;
+};
+
 const emptyApplicationForm: ApplicationFormValues = {
   eventName: "",
   eventDate: "",
@@ -51,13 +60,23 @@ function requiredLabel(label: string) {
   );
 }
 
-function getTodayDateText() {
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = String(today.getMonth() + 1).padStart(2, "0");
-  const day = String(today.getDate()).padStart(2, "0");
+function formatDateText(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
 
   return `${year}-${month}-${day}`;
+}
+
+function getTomorrowDateString() {
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  return formatDateText(tomorrow);
+}
+
+function isTimeText(value: string) {
+  return /^\d{2}:\d{2}$/.test(value);
 }
 
 export default function HirerPage() {
@@ -81,7 +100,8 @@ export default function HirerPage() {
   const [selectedVenueForApply, setSelectedVenueForApply] = useState<Venue | null>(null);
   const [isApplyDialogOpen, setIsApplyDialogOpen] = useState(false);
   const [isSubmittingApplication, setIsSubmittingApplication] = useState(false);
-  const [applicationFormError, setApplicationFormError] = useState("");
+  const [applicationFormErrors, setApplicationFormErrors] =
+    useState<ApplicationFormErrors>({});
   const [applicationForm, setApplicationForm] =
     useState<ApplicationFormValues>(emptyApplicationForm);
   const [bookingHistory, setBookingHistory] = useState<BookingApplication[]>([]);
@@ -293,7 +313,7 @@ export default function HirerPage() {
   function openApplyDialog(venue: Venue) {
     setSelectedVenueForApply(venue);
     setApplicationForm(emptyApplicationForm);
-    setApplicationFormError("");
+    setApplicationFormErrors({});
     setIsApplyDialogOpen(true);
   }
 
@@ -301,87 +321,125 @@ export default function HirerPage() {
     setIsApplyDialogOpen(false);
     setSelectedVenueForApply(null);
     setApplicationForm(emptyApplicationForm);
-    setApplicationFormError("");
+    setApplicationFormErrors({});
     setIsSubmittingApplication(false);
   }
 
   function updateApplicationForm(field: keyof ApplicationFormValues, value: string) {
     setApplicationForm((current) => ({ ...current, [field]: value }));
+    setApplicationFormErrors((current) => ({
+      ...current,
+      [field]: undefined,
+      form: undefined,
+    }));
   }
 
   function validateApplicationForm() {
+    const nextErrors: ApplicationFormErrors = {};
     const guestCount = Number(applicationForm.guestCount);
     const duration = Number(applicationForm.duration);
+    const tomorrowDate = getTomorrowDateString();
 
     if (!selectedVenueForApply) {
-      return "Unable to submit booking request. Please try again later.";
+      nextErrors.form = "Unable to submit booking request. Please try again later.";
+      return nextErrors;
     }
 
     if (!applicationForm.eventName.trim()) {
-      return "Event name is required.";
+      nextErrors.eventName = "Event name is required.";
     }
 
     if (!applicationForm.eventDate) {
-      return "Event date is required.";
+      nextErrors.eventDate = "Event date is required.";
+    } else if (applicationForm.eventDate < tomorrowDate) {
+      nextErrors.eventDate = "Event date must be at least tomorrow.";
     }
 
     if (!applicationForm.eventTime) {
-      return "Event time is required.";
+      nextErrors.eventTime = "Event time is required.";
+    } else if (!isTimeText(applicationForm.eventTime)) {
+      nextErrors.eventTime = "Please enter a valid event time.";
     }
 
-    if (!Number.isInteger(guestCount) || guestCount <= 0) {
-      return "Guest count must be a positive whole number.";
+    if (!applicationForm.guestCount) {
+      nextErrors.guestCount = "Guest count is required.";
+    } else if (!Number.isInteger(guestCount) || guestCount <= 0) {
+      nextErrors.guestCount = "Guest count must be a positive whole number.";
+    } else if (guestCount > selectedVenueForApply.capacity) {
+      nextErrors.guestCount = "Guest count cannot exceed venue capacity.";
     }
 
-    if (!Number.isInteger(duration) || duration <= 0) {
-      return "Duration must be a positive whole number.";
+    if (!applicationForm.duration) {
+      nextErrors.duration = "Duration is required.";
+    } else if (!Number.isFinite(duration) || duration <= 0) {
+      nextErrors.duration = "Duration must be a positive number.";
     }
 
-    const eventDateTime = new Date(
-      `${applicationForm.eventDate}T${applicationForm.eventTime}:00`,
-    );
 
-    if (Number.isNaN(eventDateTime.getTime()) || eventDateTime <= new Date()) {
-      return "Event date and time must be in the future.";
-    }
-
-    if (guestCount > selectedVenueForApply.capacity) {
-      return "Guest count cannot exceed venue capacity.";
-    }
-
-    return "";
+    return nextErrors;
   }
 
-  function getBookingErrorMessage(error: unknown) {
+  function getBookingApiErrors(error: unknown): ApplicationFormErrors {
+    const fallbackMessage = "Unable to submit booking request. Please try again later.";
+
     if (axios.isAxiosError(error)) {
       const data = error.response?.data as { message?: string } | undefined;
+      const status = error.response?.status;
 
       if (data?.message) {
-        return data.message;
+        const message = data.message;
+        const lowerMessage = message.toLowerCase();
+
+        if (status && status >= 500) {
+          return { form: fallbackMessage };
+        }
+
+        if (
+          lowerMessage.includes("existing booking") ||
+          lowerMessage.includes("blocked slot")
+        ) {
+          return { eventTime: message };
+        }
+
+        if (lowerMessage.includes("capacity")) {
+          return { guestCount: message };
+        }
+
+        if (lowerMessage.includes("date")) {
+          return { eventDate: message };
+        }
+
+        if (lowerMessage.includes("time")) {
+          return { eventTime: message };
+        }
+
+        return { form: message };
       }
     }
 
-    return "Unable to submit booking request. Please try again later.";
+    return { form: fallbackMessage };
   }
 
   async function handleSubmitApplication(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (!currentUser?.accountID || !selectedVenueForApply) {
-      setApplicationFormError("Unable to submit booking request. Please try again later.");
+      setApplicationFormErrors({
+        form: "Unable to submit booking request. Please try again later.",
+      });
       return;
     }
 
-    const validationMessage = validateApplicationForm();
+    const validationErrors = validateApplicationForm();
 
-    if (validationMessage) {
-      setApplicationFormError(validationMessage);
+    if (Object.values(validationErrors).some(Boolean)) {
+      setApplicationFormErrors(validationErrors);
       return;
     }
 
     try {
       setIsSubmittingApplication(true);
-      setApplicationFormError("");
+      setApplicationFormErrors({});
 
       await bookingApi.createBooking({
         hireAccountID: currentUser.accountID,
@@ -404,7 +462,7 @@ export default function HirerPage() {
       void loadBookingHistory();
       closeApplyDialog();
     } catch (error) {
-      setApplicationFormError(getBookingErrorMessage(error));
+      setApplicationFormErrors(getBookingApiErrors(error));
     } finally {
       setIsSubmittingApplication(false);
     }
@@ -433,7 +491,7 @@ export default function HirerPage() {
     (a, b) => a.preferenceRank - b.preferenceRank,
   );
   const preferredVenueIds = sortedPreferredVenues.map((venue) => venue.id);
-  const todayDate = getTodayDateText();
+  const tomorrowDate = getTomorrowDateString();
 
   if (!isAuthReady) {
     return (
@@ -516,7 +574,7 @@ export default function HirerPage() {
                     type="text"
                     value={name}
                     onChange={(event) => setName(event.target.value)}
-                    placeholder="Harbour"
+                    placeholder="eg. Harbour"
                     className="w-full rounded border border-zinc-500 px-3 py-2 text-sm"
                   />
                 </div>
@@ -533,7 +591,7 @@ export default function HirerPage() {
                     type="text"
                     value={location}
                     onChange={(event) => setLocation(event.target.value)}
-                    placeholder="Melbourne"
+                    placeholder="eg. Melbourne"
                     className="w-full rounded border border-zinc-500 px-3 py-2 text-sm"
                   />
                 </div>
@@ -551,7 +609,7 @@ export default function HirerPage() {
                     min="0"
                     value={capacity}
                     onChange={(event) => setCapacity(event.target.value)}
-                    placeholder="100"
+                    placeholder="eg. 100"
                     className="w-full rounded border border-zinc-500 px-3 py-2 text-sm"
                   />
                 </div>
@@ -678,9 +736,9 @@ export default function HirerPage() {
                 </div>
               ) : null}
 
-              {applicationFormError ? (
+              {applicationFormErrors.form ? (
                 <p className="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-                  {applicationFormError}
+                  {applicationFormErrors.form}
                 </p>
               ) : null}
 
@@ -692,18 +750,28 @@ export default function HirerPage() {
                   }
                   placeholder="Birthday Party"
                 />
+                {applicationFormErrors.eventName ? (
+                  <p className="mt-1 text-sm text-red-600">
+                    {applicationFormErrors.eventName}
+                  </p>
+                ) : null}
               </Field>
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field label={requiredLabel("Event date")} color="black">
                   <Input
-                    min={todayDate}
+                    min={tomorrowDate}
                     type="date"
                     value={applicationForm.eventDate}
                     onChange={(event) =>
                       updateApplicationForm("eventDate", event.target.value)
                     }
                   />
+                  {applicationFormErrors.eventDate ? (
+                    <p className="mt-1 text-sm text-red-600">
+                      {applicationFormErrors.eventDate}
+                    </p>
+                  ) : null}
                 </Field>
                 <Field label={requiredLabel("Event time")} color="black">
                   <Input
@@ -713,6 +781,11 @@ export default function HirerPage() {
                       updateApplicationForm("eventTime", event.target.value)
                     }
                   />
+                  {applicationFormErrors.eventTime ? (
+                    <p className="mt-1 text-sm text-red-600">
+                      {applicationFormErrors.eventTime}
+                    </p>
+                  ) : null}
                 </Field>
               </div>
 
@@ -727,6 +800,11 @@ export default function HirerPage() {
                     }
                     placeholder="80"
                   />
+                  {applicationFormErrors.guestCount ? (
+                    <p className="mt-1 text-sm text-red-600">
+                      {applicationFormErrors.guestCount}
+                    </p>
+                  ) : null}
                 </Field>
                 <Field label={requiredLabel("Duration")} color="black">
                   <Input
@@ -738,6 +816,11 @@ export default function HirerPage() {
                     }
                     placeholder="4"
                   />
+                  {applicationFormErrors.duration ? (
+                    <p className="mt-1 text-sm text-red-600">
+                      {applicationFormErrors.duration}
+                    </p>
+                  ) : null}
                 </Field>
               </div>
             </DialogBody>
