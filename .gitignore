@@ -33,9 +33,4 @@ $RECYCLE.BIN/
 .DS_Store
 
 # --- SECURITY (CRITICAL) ---
-# Never upload your API keys or passwords
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+# upload your API keys or passwords for teaching team
