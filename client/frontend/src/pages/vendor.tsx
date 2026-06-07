@@ -1775,7 +1775,7 @@ async function handleCreateBlockedSlot(e: FormEvent<HTMLFormElement>) {
                         No tally data available.
                       </p>
                     ) : (
-                      <div className="h-[360px] w-full">
+                      <div className="h-[360px] w-full min-w-0">
                         <ResponsiveContainer width="100%" height="100%">
                           <BarChart
                             data={talliesByVenueChartData}
@@ -1813,7 +1813,7 @@ async function handleCreateBlockedSlot(e: FormEvent<HTMLFormElement>) {
                         No combined tally data available.
                       </p>
                     ) : (
-                      <div className="h-[260px] w-full">
+                      <div className="h-[260px] w-full min-w-0">
                         <ResponsiveContainer width="100%" height="100%">
                           <BarChart
                             data={stackedTallyData}
@@ -1877,7 +1877,7 @@ async function handleCreateBlockedSlot(e: FormEvent<HTMLFormElement>) {
                         No active hirer data available.
                       </p>
                     ) : (
-                      <div className="h-[240px] w-full">
+                      <div className="h-[240px] w-full min-w-0">
                         <ResponsiveContainer width="100%" height="100%">
                           <PieChart>
                             <Pie
@@ -1939,7 +1939,7 @@ async function handleCreateBlockedSlot(e: FormEvent<HTMLFormElement>) {
                         No utilisation data available for this period.
                       </p>
                     ) : (
-                      <div className="h-[260px] w-full">
+                      <div className="h-[260px] w-full min-w-0">
                         <ResponsiveContainer width="100%" height="100%">
                           <LineChart
                             data={utilisationChartData}
