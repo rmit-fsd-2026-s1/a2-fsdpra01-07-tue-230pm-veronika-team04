@@ -1,5 +1,5 @@
 ## Repository URL
-git repo url: [https://github.com/rmit-fsd-2026-s1/a2-ver.git](https://github.com/rmit-fsd-2026-s1/a2-fsdpra01-07-tue-230pm-veronika-team04.git)
+git repo url: [https://github.com/rmit-fsd-2026-s1/a2-fsdpra01-07-tue-230pm-veronika-team04.git](https://github.com/rmit-fsd-2026-s1/a2-fsdpra01-07-tue-230pm-veronika-team04.git)
 
 ## Render URl
 
