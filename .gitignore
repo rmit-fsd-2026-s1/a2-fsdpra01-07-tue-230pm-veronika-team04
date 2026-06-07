@@ -33,4 +33,4 @@ $RECYCLE.BIN/
 .DS_Store
 
 # --- SECURITY (CRITICAL) ---
-# upload your API keys or passwords for teaching team
+.env
