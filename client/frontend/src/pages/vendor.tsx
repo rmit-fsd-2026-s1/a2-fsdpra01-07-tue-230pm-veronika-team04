@@ -3,19 +3,8 @@ import { useRouter } from "next/router";
 import type { ChangeEvent, FormEvent } from "react";
 import { useEffect, useState } from "react";
 import { FaBuilding, FaChartBar, FaStar, FaUsers, FaTrash, FaEdit, FaBan} from "react-icons/fa";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Legend,
-  Line,
-  LineChart,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
+import {Bar, BarChart, CartesianGrid, Legend, Line, LineChart, Pie, PieChart,
+  ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 
 import {DialogBody, DialogCloseTrigger, DialogContent, DialogFooter,
@@ -35,23 +24,12 @@ import type { BookingApplication } from "@/types/booking";
 import { blockedSlotApi } from "@/services/blockedSlotApi";
 import type { BlockedSlot } from "@/services/blockedSlotApi";
 import { reportApi } from "@/services/reportApi";
-import type {
-  ActiveHirerItem,
-  CombinedTallyItem,
-  ReportPeriod,
-  VendorSummaryReport,
-  VendorUtilisationReport,
+import type { ActiveHirerItem, CombinedTallyItem, ReportPeriod,
+  VendorSummaryReport, VendorUtilisationReport,
 } from "@/types/report";
 
-const chartColors = [
-  "#095d44",
-  "#2563eb",
-  "#f97316",
-  "#7c3aed",
-  "#dc2626",
-  "#0891b2",
-  "#be123c",
-  "#4b5563",
+const chartColors = [ "#095d44", "#2563eb", "#f97316", "#7c3aed",
+  "#dc2626", "#0891b2", "#be123c", "#4b5563",
 ];
 
 const reportPeriodOptions: { label: string; value: ReportPeriod }[] = [

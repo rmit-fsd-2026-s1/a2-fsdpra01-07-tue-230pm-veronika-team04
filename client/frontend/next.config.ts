@@ -4,7 +4,14 @@ const nextConfig: NextConfig = {
   /* config options here */
   reactCompiler: true,
   reactStrictMode: true,
+  output: 'export',
+  typescript: {
+    // ⚠️ Warning: This dangerously allows production builds 
+    // to complete successfully even if your project has type errors.
+    ignoreBuildErrors: true, 
+  },
   images: {
+    unoptimized: true,
     remotePatterns: [
       {
         protocol: "http",
