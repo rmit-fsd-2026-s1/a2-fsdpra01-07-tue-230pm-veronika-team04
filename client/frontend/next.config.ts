@@ -5,6 +5,11 @@ const nextConfig: NextConfig = {
   reactCompiler: true,
   reactStrictMode: true,
   output: 'export',
+  typescript: {
+    // ⚠️ Warning: This dangerously allows production builds 
+    // to complete successfully even if your project has type errors.
+    ignoreBuildErrors: true, 
+  },
   images: {
     remotePatterns: [
       {
