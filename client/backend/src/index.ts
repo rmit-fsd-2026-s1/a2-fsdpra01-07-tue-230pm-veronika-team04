@@ -37,13 +37,15 @@ app.use("/api/blocked-slots", blockedSlotRoutes);
 app.use("/api/documents", documentRoutes);
 app.use("/api/reports", visualDataRoutes);
 
+const HOST = "0.0.0.0";
 
 AppDataSource.initialize()
   .then(() => {
     console.log("Database connected successfully");
 
-    app.listen(port, () => {
-      console.log(`Server running on http://localhost:${port}`);
+    app.listen(Number(port), HOST, () => {
+      const mode = process.env.NODE_ENV === "production" ? "Production" : "Local";
+      console.log(`${mode} server running on port ${port}`);
     });
   })
   .catch((error) => {
