@@ -3,6 +3,7 @@ import { AppDataSource } from "./data-source";
 import { app } from "./app";
 
 dotenv.config();
+const HOST = "0.0.0.0";
 
 const port = process.env.PORT || 3001;
 
