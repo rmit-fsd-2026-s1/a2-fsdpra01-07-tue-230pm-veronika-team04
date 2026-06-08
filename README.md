@@ -5,7 +5,8 @@ git repo url: [https://github.com/rmit-fsd-2026-s1/a2-fsdpra01-07-tue-230pm-vero
 Frontend: https://a2-ver-1.onrender.com/  
 Backend (Not necessary to launch, but just in case: https://a2-ver.onrender.com/  
 Proof render website was deployed bedore due date:  
-<img width="1867" height="958" alt="Screenshot 2026-06-08 150159" src="https://github.com/user-attachments/assets/21ae3107-bd58-4891-b08f-bdab94015e4e" />
+<img width="1867" height="958" alt="Screenshot 2026-06-08 150159" src="https://github.com/user-attachments/assets/21ae3107-bd58-4891-b08f-bdab94015e4e" />  
+<img width="1859" height="964" alt="Screenshot 2026-06-08 151748" src="https://github.com/user-attachments/assets/8c5317e2-6a34-433c-a018-cf1d46f3d9be" />  
 
 
 ## Hirer Account with password
