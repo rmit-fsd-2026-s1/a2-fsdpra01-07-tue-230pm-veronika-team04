@@ -1,9 +1,12 @@
 ## Repository URL
 git repo url: [https://github.com/rmit-fsd-2026-s1/a2-fsdpra01-07-tue-230pm-veronika-team04.git](https://github.com/rmit-fsd-2026-s1/a2-fsdpra01-07-tue-230pm-veronika-team04.git)
 
-## Render URl
-https://a2-ver.onrender.com/
-https://a2-ver-1.onrender.com/
+## Render URl  
+Frontend: https://a2-ver-1.onrender.com/  
+Backend (Not necessary to launch, but just in case: https://a2-ver.onrender.com/  
+Proof render website was deployed bedore due date:  
+<img width="1867" height="958" alt="Screenshot 2026-06-08 150159" src="https://github.com/user-attachments/assets/21ae3107-bd58-4891-b08f-bdab94015e4e" />
+
 
 ## Hirer Account with password
 callum@123.com Shen20050212#
